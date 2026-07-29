@@ -86,3 +86,36 @@
 - Route groups organize files without changing public URLs.
 - `Link` enables navigation between internal Next.js routes.
 - Shared layouts prevent repeated headers and navigation code.
+
+## Day 4 — Server and Client Components
+
+### What I completed
+
+- Converted the homepage back into a Server Component.
+- Moved lead state, filtering, events, and form interaction into `LeadManager`.
+- Passed typed initial lead data from a Server Component to a Client Component.
+- Created a server-only configuration module.
+- Read private environment variables only on the server.
+- Displayed a safe configuration summary without exposing the secret value.
+- Tested importing a server-only module into a Client Component.
+- Tested using `useState` inside a Server Component.
+- Removed an unnecessary `"use client"` directive from `InquiryForm`.
+- Removed duplicate inquiry-form validation.
+- Trimmed form values before storing them.
+- Improved typed-text, placeholder, and focus styling in form inputs.
+- Ran TypeScript, ESLint, and production build checks successfully.
+
+### What I learned
+
+- App Router pages and layouts are Server Components by default.
+- Server Components can access private configuration and server-only modules.
+- Client Components are required for state, events, forms, and browser APIs.
+- `"use client"` defines a boundary, not just one isolated component.
+- Components imported below a client boundary become part of the client component tree.
+- Server Components can render Client Components.
+- Data passed from server to client must be serializable.
+- Plain objects, arrays, strings, numbers, and booleans can cross the boundary.
+- Secrets, database clients, and server-only modules must not enter Client Components.
+- Environment variables without `NEXT_PUBLIC_` should remain server-side.
+- A secret is still exposed if a Server Component renders its actual value.
+- Interactive code should be placed in the smallest reasonable Client Component.

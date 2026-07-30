@@ -1,4 +1,5 @@
 import type { Lead } from "@/types/lead";
+import EmptyState from "@/components/EmptyState";
 import LeadCard from "@/components/LeadCard";
 
 type LeadListProps = {
@@ -10,20 +11,15 @@ export default function LeadList({
 }: LeadListProps) {
   if (leads.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-        <p className="font-medium text-slate-900">
-          No leads found
-        </p>
-
-        <p className="mt-1 text-sm text-slate-600">
-          New inquiries will appear here.
-        </p>
-      </div>
+      <EmptyState
+        title="No leads found"
+        description="No inquiries match the selected status. Choose another filter or add a new lead."
+      />
     );
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid w-full min-w-0 gap-4">
       {leads.map((lead) => (
         <LeadCard key={lead.id} lead={lead} />
       ))}

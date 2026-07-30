@@ -119,3 +119,45 @@
 - Environment variables without `NEXT_PUBLIC_` should remain server-side.
 - A secret is still exposed if a Server Component renders its actual value.
 - Interactive code should be placed in the smallest reasonable Client Component.
+
+## Day 5 — Responsive UI with Tailwind
+
+### What I completed
+
+- Audited the CRM at mobile, tablet, laptop, and desktop widths.
+- Created responsive mobile navigation and a desktop sidebar.
+- Reduced page padding on small screens.
+- Added responsive dashboard statistic cards.
+- Improved the reusable `DashboardStat` component.
+- Created mobile lead cards and a desktop lead table.
+- Added wrapping rules for long names, emails, phone numbers, and course titles.
+- Fixed horizontal overflow caused by flex items and long email addresses.
+- Improved the inquiry form with responsive columns.
+- Connected form labels and inputs using `htmlFor` and `id`.
+- Added visible hover and keyboard-focus states.
+- Improved phone input semantics with `type="tel"` and `inputMode="tel"`.
+- Created a responsive loading skeleton.
+- Created a reusable empty-state component.
+- Created a reusable confirmation dialog.
+- Added Escape-key, background-click, cancel, and confirm behavior to the dialog.
+- Added a confirmation step before clearing all leads.
+- Tested the UI with long content and narrow screens.
+- Verified that the interface has no page-level horizontal overflow.
+- Ran TypeScript, ESLint, and production build checks successfully.
+
+### What I learned
+
+- Tailwind uses a mobile-first responsive approach.
+- Unprefixed classes apply to small screens first.
+- Breakpoint classes such as `sm:`, `md:`, `lg:`, and `xl:` progressively enhance layouts.
+- `min-w-0` allows flex and grid children to shrink correctly.
+- `break-words` wraps long text at suitable word boundaries.
+- `break-all` is useful for long values such as email addresses.
+- `overflow-x-auto` is safer for wide tables than allowing the entire page to overflow.
+- Mobile cards are often easier to read than tables on narrow screens.
+- Responsive loading states should resemble the final content layout.
+- Labels should be explicitly connected to form fields.
+- Keyboard users need clear focus indicators.
+- Destructive actions should require confirmation.
+- Reusable UI components reduce repeated styling and behavior.
+- Accessibility should be considered while building components, not added only at the end.

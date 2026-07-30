@@ -15,7 +15,7 @@ export const initialLeads: Lead[] = [
     email: "sita@example.com",
     phone: "9800000001",
     interestedCourse: "Data Science",
-    status: "CONTACTED",
+    status: "ENROLLED",
   },
   {
     id: "lead-003",

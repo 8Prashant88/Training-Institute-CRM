@@ -5,20 +5,20 @@ import { getServerConfigSummary } from "@/lib/server-config";
 export default function HomePage() {
   const configSummary = getServerConfigSummary();
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
-      <section className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-10 shadow-sm">
+    <main className="min-h-screen overflow-x-hidden bg-slate-100 p-3 sm:p-6">
+      <section className="mx-auto w-full min-w-0 max-w-4xl overflow-hidden rounded-2xl bg-white p-4 shadow-sm sm:p-8 lg:p-10">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
           Day 4
         </p>
 
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+        <h1 className="break-words text-2xl font-bold tracking-tight text-[#001B31] sm:text-4xl">
           Training Institute CRM
         </h1>
 
-        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:mt-4 sm:text-lg sm:leading-8">
           Server-rendered CRM page with client-side lead management.
         </p>
-        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-6 min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-medium text-slate-900">
             Server configuration
           </p>

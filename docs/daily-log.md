@@ -212,3 +212,49 @@
 - Server Actions allow Client Components to call server-side application logic.
 - Successful form validation does not automatically mean data is permanently stored.
 - React state and temporary Server Actions will be replaced with database persistence later.
+
+## Day 7 — Production Deployment and Reconstruction
+
+### What I completed
+
+- Ran TypeScript, ESLint, and production build checks.
+- Built the optimized Next.js production application.
+- Ran the production server locally using `npm run start`.
+- Tested all public and dashboard routes in production mode.
+- Tested direct browser refresh on nested and dynamic routes.
+- Tested the custom not-found page with an invalid URL.
+- Connected the GitHub repository to Vercel.
+- Configured production and preview environment variables.
+- Deployed the Training Institute CRM to Vercel.
+- Tested public inquiry and internal lead forms after deployment.
+- Tested the application on a mobile viewport.
+- Tested the responsive dashboard navigation.
+- Tested the application using a throttled network connection.
+- Verified that the browser console had no critical production errors.
+- Added the live deployment link to the README.
+- Reconstructed `LeadCard` without relying on copied code.
+- Reconstructed `InquiryForm` from its requirements and data flow.
+- Verified the reconstructed components using TypeScript, ESLint, and production builds.
+
+### What I learned
+
+- Development mode is optimized for debugging and fast code changes.
+- Production mode is optimized for performance, stability, and real users.
+- `next build` compiles and optimizes the application.
+- `next start` runs the previously generated production build.
+- A feature that works in development can still fail during a production build.
+- Build-time errors prevent the application from being deployed.
+- Runtime errors occur after the application has successfully started.
+- Production environment variables must be configured separately from `.env.local`.
+- Environment variables added on Vercel require a new deployment to take effect.
+- Production and preview deployments can use different environment values.
+- Vercel automatically deploys new commits pushed to the connected branch.
+- Nested routes must be tested using direct navigation and browser refresh.
+- Server Actions continue to execute on the server after deployment.
+- Client-side React state is temporary and disappears after refresh.
+- A successful deployment does not replace manual route and form testing.
+- Slow-network testing helps reveal weak loading states and layout shifts.
+- Rebuilding a component from requirements exposes gaps in understanding.
+- Component props define the contract between parent and child components.
+- Reusable UI components reduce styling duplication and improve consistency.
+- Git history provides a safe recovery point during reconstruction exercises.

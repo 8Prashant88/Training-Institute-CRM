@@ -161,3 +161,54 @@
 - Destructive actions should require confirmation.
 - Reusable UI components reduce repeated styling and behavior.
 - Accessibility should be considered while building components, not added only at the end.
+## Day 6 — Forms, Zod, and Submission States
+
+### What I completed
+
+- Installed Zod for runtime form validation.
+- Created a shared `leadFormSchema` for internal lead forms.
+- Created a `publicInquirySchema` with an additional message field.
+- Inferred TypeScript form types directly from Zod schemas.
+- Validated full name, email, phone number, course interest, and message.
+- Trimmed text values before accepting submitted data.
+- Added minimum and maximum length validation rules.
+- Installed and configured an international phone-number input.
+- Added country flags and international calling codes.
+- Used Nepal as the default country without restricting foreign numbers.
+- Stored validated phone numbers in international E.164 format.
+- Created a reusable `InternationalPhoneField` component.
+- Added field-specific validation errors to the create-lead form.
+- Added a validated public inquiry form to the homepage.
+- Added a validated edit-lead form to the dynamic lead-detail route.
+- Created Server Actions for creating, updating, and submitting inquiries.
+- Revalidated submitted information on the server.
+- Added pending, success, and failure submission states.
+- Disabled form controls while a submission was running.
+- Added duplicate-submission protection using a submission lock.
+- Added accessible error messages using `aria-invalid`, `aria-describedby`, and live regions.
+- Tested missing fields, whitespace-only input, invalid emails, invalid phone numbers, oversized input, simulated server failures, and rapid double-clicks.
+
+### What I learned
+
+- TypeScript types only protect code during development and compilation.
+- TypeScript interfaces do not validate data at runtime.
+- Zod schemas validate unknown data while the application is running.
+- `safeParse()` returns a success or failure result without throwing a normal validation exception.
+- `z.infer` creates TypeScript types from schemas and prevents duplicated type definitions.
+- Form-input types should be separate from complete stored entity types.
+- Fields such as `id` and default `status` should be generated after validation instead of entered by the user.
+- `.trim()` prevents whitespace-only values from passing required-field validation.
+- Client-side validation provides fast feedback but cannot be trusted as the only validation layer.
+- Server-side validation protects the application when browser validation is bypassed.
+- A shared schema keeps client and server validation rules consistent.
+- Controlled inputs keep form values synchronized with React state.
+- Field errors can be represented with `Partial<Record<keyof FormData, string>>`.
+- International phone validation should use phone-number metadata instead of one country-specific regular expression.
+- E.164 provides a consistent format for storing international phone numbers.
+- Runtime helper functions such as `isValidPhoneNumber` must be imported wherever the schema executes.
+- Pending states communicate that a submission is processing.
+- Disabling a button improves the interface but a synchronous submission lock provides stronger duplicate-submit protection.
+- `try`, `catch`, and `finally` help manage success, unexpected failure, and cleanup states.
+- Server Actions allow Client Components to call server-side application logic.
+- Successful form validation does not automatically mean data is permanently stored.
+- React state and temporary Server Actions will be replaced with database persistence later.

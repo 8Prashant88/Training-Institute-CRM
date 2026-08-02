@@ -1,12 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+import EditLeadForm from "@/components/EditLeadForm";
 import { leads } from "@/data/leads";
+import type { LeadFormData } from "@/schemas/lead-schema";
 
 type LeadDetailPageProps = {
   params: Promise<{
     id: string;
   }>;
 };
+
+function normalizePhoneNumber(phone: string) {
+  const trimmedPhone = phone.trim();
+
+  if (trimmedPhone.startsWith("+")) {
+    return trimmedPhone;
+  }
+
+  return `+977${trimmedPhone}`;
+}
 
 export default async function LeadDetailPage({
   params,
@@ -21,66 +34,50 @@ export default async function LeadDetailPage({
     notFound();
   }
 
+  const initialData: LeadFormData = {
+    fullName: lead.fullName,
+    email: lead.email,
+    phone: normalizePhoneNumber(lead.phone),
+    interestedCourse: lead.course,
+  };
+
   return (
-    <section className="rounded-xl bg-white p-8 shadow-sm">
-      <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-        Lead details
-      </p>
+    <section className="min-w-0">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#F9901C]">
+              Lead details
+            </p>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {lead.fullName}
-          </h1>
+            <h1 className="mt-2 break-words text-2xl font-bold text-[#001B31] sm:text-3xl">
+              {lead.fullName}
+            </h1>
 
-          <p className="mt-2 text-slate-600">
-            Lead ID: {lead.id}
-          </p>
+            <p className="mt-2 break-all text-sm text-slate-600">
+              Lead ID: {lead.id}
+            </p>
+          </div>
+
+          <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
+            {lead.status}
+          </span>
         </div>
 
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-          {lead.status}
-        </span>
+        <div className="mt-6">
+          <Link
+            href="/dashboard/leads"
+            className="inline-flex rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9901C]"
+          >
+            ← Back to leads
+          </Link>
+        </div>
       </div>
 
-      <dl className="mt-8 grid gap-5 rounded-xl border border-slate-200 p-5 sm:grid-cols-2">
-        <div>
-          <dt className="text-sm text-slate-500">Email</dt>
-          <dd className="mt-1 font-medium text-slate-900">
-            {lead.email}
-          </dd>
-        </div>
-
-        <div>
-          <dt className="text-sm text-slate-500">Phone</dt>
-          <dd className="mt-1 font-medium text-slate-900">
-            {lead.phone}
-          </dd>
-        </div>
-
-        <div>
-          <dt className="text-sm text-slate-500">
-            Interested course
-          </dt>
-          <dd className="mt-1 font-medium text-slate-900">
-            {lead.course}
-          </dd>
-        </div>
-
-        <div>
-          <dt className="text-sm text-slate-500">Status</dt>
-          <dd className="mt-1 font-medium text-slate-900">
-            {lead.status}
-          </dd>
-        </div>
-      </dl>
-
-      <Link
-        href="/dashboard/leads"
-        className="mt-6 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-      >
-        Back to leads
-      </Link>
+      <EditLeadForm
+        leadId={lead.id}
+        initialData={initialData}
+      />
     </section>
   );
 }

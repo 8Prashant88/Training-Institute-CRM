@@ -8,16 +8,16 @@ import {
 import type { Value } from "react-phone-number-input";
 import * as z from "zod";
 
-import { submitLead } from "@/actions/submit-lead";
+import { updateLead } from "@/actions/update-lead";
 import InternationalPhoneField from "@/components/InternationalPhoneField";
 import {
   leadFormSchema,
   type LeadFormData,
 } from "@/schemas/lead-schema";
-import type { Lead } from "@/types/lead";
 
-type InquiryFormProps = {
-  onCreateLead: (lead: Lead) => void;
+type EditLeadFormProps = {
+  leadId: string;
+  initialData: LeadFormData;
 };
 
 type LeadFieldErrors = Partial<
@@ -40,15 +40,24 @@ function getInputClassName(error?: string) {
   }`;
 }
 
-export default function InquiryForm({
-  onCreateLead,
-}: InquiryFormProps) {
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] =
-    useState<Value | undefined>();
+export default function EditLeadForm({
+  leadId,
+  initialData,
+}: EditLeadFormProps) {
+  const [fullName, setFullName] = useState(
+    initialData.fullName,
+  );
+
+  const [email, setEmail] = useState(
+    initialData.email,
+  );
+
+  const [phone, setPhone] = useState<
+    Value | undefined
+  >(initialData.phone as Value);
+
   const [interestedCourse, setInterestedCourse] =
-    useState("");
+    useState(initialData.interestedCourse);
 
   const [fieldErrors, setFieldErrors] =
     useState<LeadFieldErrors>({});
@@ -82,14 +91,6 @@ export default function InquiryForm({
         message: "",
       });
     }
-  }
-
-  function resetForm() {
-    setFullName("");
-    setEmail("");
-    setPhone(undefined);
-    setInterestedCourse("");
-    setFieldErrors({});
   }
 
   async function handleSubmit(
@@ -140,12 +141,12 @@ export default function InquiryForm({
     }
 
     setFieldErrors({});
-
     submissionLockRef.current = true;
     setIsSubmitting(true);
 
     try {
-      const serverResult = await submitLead(
+      const serverResult = await updateLead(
+        leadId,
         clientResult.data,
       );
 
@@ -160,24 +161,24 @@ export default function InquiryForm({
         return;
       }
 
-      const newLead: Lead = {
-        id: crypto.randomUUID(),
-        ...serverResult.data,
-        status: "NEW",
-      };
-
-      onCreateLead(newLead);
-      resetForm();
+      setFullName(serverResult.data.fullName);
+      setEmail(serverResult.data.email);
+      setPhone(serverResult.data.phone as Value);
+      setInterestedCourse(
+        serverResult.data.interestedCourse,
+      );
 
       setSubmissionFeedback({
         type: "success",
         message: serverResult.message,
       });
-    } catch {
+    } catch (error) {
+      console.error("Lead update failed:", error);
+
       setSubmissionFeedback({
         type: "error",
         message:
-          "An unexpected error occurred. Please try again.",
+          "An unexpected error occurred while updating the lead.",
       });
     } finally {
       submissionLockRef.current = false;
@@ -194,30 +195,30 @@ export default function InquiryForm({
     >
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider text-[#F9901C]">
-          New inquiry
+          Edit lead
         </p>
 
         <h2 className="mt-2 text-xl font-semibold text-[#001B31]">
-          Add a new lead
+          Update lead information
         </h2>
 
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Record a prospective student&apos;s contact
-          details and course interest.
+          Update the student&apos;s contact information
+          and course interest.
         </p>
       </div>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
         <div className="grid gap-2">
           <label
-            htmlFor="fullName"
+            htmlFor="edit-fullName"
             className="text-sm font-medium text-slate-700"
           >
             Full name
           </label>
 
           <input
-            id="fullName"
+            id="edit-fullName"
             name="fullName"
             type="text"
             autoComplete="name"
@@ -236,14 +237,14 @@ export default function InquiryForm({
             )}
             aria-describedby={
               fieldErrors.fullName
-                ? "fullName-error"
+                ? "edit-fullName-error"
                 : undefined
             }
           />
 
           {fieldErrors.fullName && (
             <p
-              id="fullName-error"
+              id="edit-fullName-error"
               role="alert"
               className="text-sm text-red-600"
             >
@@ -254,14 +255,14 @@ export default function InquiryForm({
 
         <div className="grid gap-2">
           <label
-            htmlFor="email"
+            htmlFor="edit-email"
             className="text-sm font-medium text-slate-700"
           >
             Email address
           </label>
 
           <input
-            id="email"
+            id="edit-email"
             name="email"
             type="email"
             autoComplete="email"
@@ -278,14 +279,14 @@ export default function InquiryForm({
             aria-invalid={Boolean(fieldErrors.email)}
             aria-describedby={
               fieldErrors.email
-                ? "email-error"
+                ? "edit-email-error"
                 : undefined
             }
           />
 
           {fieldErrors.email && (
             <p
-              id="email-error"
+              id="edit-email-error"
               role="alert"
               className="text-sm text-red-600"
             >
@@ -296,14 +297,14 @@ export default function InquiryForm({
 
         <div className="grid min-w-0 gap-2">
           <label
-            htmlFor="phone"
+            htmlFor="edit-phone"
             className="text-sm font-medium text-slate-700"
           >
             Phone number
           </label>
 
           <InternationalPhoneField
-            id="phone"
+            id="edit-phone"
             name="phone"
             value={phone}
             onChange={(value) => {
@@ -313,14 +314,14 @@ export default function InquiryForm({
             invalid={Boolean(fieldErrors.phone)}
             describedBy={
               fieldErrors.phone
-                ? "phone-error phone-help"
-                : "phone-help"
+                ? "edit-phone-error edit-phone-help"
+                : "edit-phone-help"
             }
           />
 
           {fieldErrors.phone && (
             <p
-              id="phone-error"
+              id="edit-phone-error"
               role="alert"
               className="text-sm text-red-600"
             >
@@ -329,24 +330,24 @@ export default function InquiryForm({
           )}
 
           <p
-            id="phone-help"
+            id="edit-phone-help"
             className="text-xs leading-5 text-slate-500"
           >
-            Select a country and enter the phone number
-            using its standard format.
+            Select the correct country before entering
+            the phone number.
           </p>
         </div>
 
         <div className="grid gap-2">
           <label
-            htmlFor="interestedCourse"
+            htmlFor="edit-interestedCourse"
             className="text-sm font-medium text-slate-700"
           >
             Interested course
           </label>
 
           <input
-            id="interestedCourse"
+            id="edit-interestedCourse"
             name="interestedCourse"
             type="text"
             disabled={isSubmitting}
@@ -364,14 +365,14 @@ export default function InquiryForm({
             )}
             aria-describedby={
               fieldErrors.interestedCourse
-                ? "interestedCourse-error"
+                ? "edit-interestedCourse-error"
                 : undefined
             }
           />
 
           {fieldErrors.interestedCourse && (
             <p
-              id="interestedCourse-error"
+              id="edit-interestedCourse-error"
               role="alert"
               className="text-sm text-red-600"
             >
@@ -406,8 +407,8 @@ export default function InquiryForm({
           className="w-full rounded-lg bg-[#001B31] px-5 py-3 font-medium text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9901C] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isSubmitting
-            ? "Submitting..."
-            : "Add lead"}
+            ? "Saving changes..."
+            : "Save changes"}
         </button>
       </div>
     </form>

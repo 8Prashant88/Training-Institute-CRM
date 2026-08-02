@@ -14,7 +14,8 @@ type InternationalPhoneFieldProps = {
   value: Value | undefined;
   onChange: (value: Value | undefined) => void;
   invalid?: boolean;
-  describedBy?: string;
+  disabled?: boolean;
+  "aria-describedby"?: string;
 };
 
 const labels = englishLabels as Record<string, string>;
@@ -37,7 +38,8 @@ export default function InternationalPhoneField({
   value,
   onChange,
   invalid = false,
-  describedBy,
+  disabled = false,
+  "aria-describedby": ariaDescribedBy,
 }: InternationalPhoneFieldProps) {
   return (
     <PhoneInput
@@ -50,10 +52,11 @@ export default function InternationalPhoneField({
       labels={countryLabelsWithCallingCodes}
       value={value}
       onChange={onChange}
+      disabled={disabled}
       autoComplete="tel"
       placeholder="Enter phone number"
       aria-invalid={invalid}
-      aria-describedby={describedBy}
+      aria-describedby={ariaDescribedBy}
       className={`international-phone-input ${
         invalid ? "international-phone-input--error" : ""
       }`}

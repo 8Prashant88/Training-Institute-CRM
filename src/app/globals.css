@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -10,30 +10,82 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Brand: deep navy, used for chrome, headings, and primary actions. */
+  --color-primary-50: #eef4f8;
+  --color-primary-100: #d9e6ee;
+  --color-primary-200: #b3ccdd;
+  --color-primary-300: #82abc6;
+  --color-primary-400: #4f84a8;
+  --color-primary-500: #2f6389;
+  --color-primary-600: #1c4a6d;
+  --color-primary-700: #123553;
+  --color-primary-800: #0a2440;
+  --color-primary-900: #001b31;
+  --color-primary-950: #000d1a;
+
+  /* Brand: warm orange, used sparingly for emphasis and calls to action. */
+  --color-accent-50: #fff8ed;
+  --color-accent-100: #ffedd2;
+  --color-accent-200: #ffd7a3;
+  --color-accent-300: #ffbc6b;
+  --color-accent-400: #fd9f3d;
+  --color-accent-500: #f9901c;
+  --color-accent-600: #e0740f;
+  --color-accent-700: #b9590d;
+  --color-accent-800: #944611;
+  --color-accent-900: #793a11;
+  --color-accent-950: #421c05;
+
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-panel: 0 4px 6px -2px rgb(15 23 42 / 0.05), 0 10px 20px -5px rgb(15 23 42 / 0.08);
+  --shadow-popover: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.1);
+
+  --animate-toast-in: toast-in 200ms ease-out;
+  --animate-fade-in: fade-in 150ms ease-out;
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.5rem) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+* {
+  scrollbar-color: var(--color-primary-200) transparent;
+  scrollbar-width: thin;
+}
+
 .international-phone-input {
   --PhoneInputCountryFlag-height: 1.25rem;
-  --PhoneInput-color--focus: #f9901c;
+  --PhoneInput-color--focus: var(--color-accent-500);
 
   display: flex;
   width: 100%;
   min-width: 0;
   align-items: center;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
+  border: 1px solid var(--color-primary-200);
+  border-radius: 0.625rem;
   background: white;
   padding: 0.75rem;
   transition:
@@ -42,8 +94,8 @@ body {
 }
 
 .international-phone-input:focus-within {
-  border-color: #001b31;
-  box-shadow: 0 0 0 2px rgb(249 144 28 / 40%);
+  border-color: var(--color-primary-900);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-500) 30%, transparent);
 }
 
 .international-phone-input--error {
@@ -52,7 +104,7 @@ body {
 
 .international-phone-input--error:focus-within {
   border-color: #dc2626;
-  box-shadow: 0 0 0 2px rgb(239 68 68 / 25%);
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 25%);
 }
 
 .international-phone-input .PhoneInputCountry {

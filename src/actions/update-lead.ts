@@ -1,5 +1,7 @@
 "use server";
 
+import * as z from "zod";
+
 import {
   leadFormSchema,
   type LeadFormData,
@@ -46,7 +48,7 @@ export async function updateLead(
   const result = leadFormSchema.safeParse(input);
 
   if (!result.success) {
-    const flattenedErrors = result.error.flatten();
+    const flattenedErrors = z.flattenError(result.error);
 
     return {
       success: false,

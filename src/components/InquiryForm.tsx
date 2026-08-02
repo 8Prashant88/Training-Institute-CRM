@@ -1,66 +1,45 @@
 "use client";
 
-import {
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useRef, useState, type FormEvent } from "react";
 import type { Value } from "react-phone-number-input";
 import * as z from "zod";
 
 import { submitLead } from "@/actions/submit-lead";
+import Button from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
+import { Input, Select } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/Toast";
 import InternationalPhoneField from "@/components/InternationalPhoneField";
 import {
   leadFormSchema,
   type LeadFormData,
 } from "@/schemas/lead-schema";
-import type { Lead } from "@/types/lead";
+import { counselors } from "@/data/leads";
+import { leadSources, type Lead, type LeadSource } from "@/types/lead";
 
 type InquiryFormProps = {
   onCreateLead: (lead: Lead) => void;
+  onCancel: () => void;
 };
 
-type LeadFieldErrors = Partial<
-  Record<keyof LeadFormData, string>
->;
-
-type SubmissionFeedback = {
-  type: "idle" | "success" | "error";
-  message: string;
-};
-
-const inputClassName =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-slate-900 placeholder:text-slate-400 transition focus:border-[#001B31] focus:outline-none focus:ring-2 focus:ring-[#F9901C]/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
-
-function getInputClassName(error?: string) {
-  return `${inputClassName} ${
-    error
-      ? "border-red-500 focus:border-red-600 focus:ring-red-500/25"
-      : ""
-  }`;
-}
+type LeadFieldErrors = Partial<Record<keyof LeadFormData, string>>;
 
 export default function InquiryForm({
   onCreateLead,
+  onCancel,
 }: InquiryFormProps) {
+  const { toast } = useToast();
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] =
-    useState<Value | undefined>();
-  const [interestedCourse, setInterestedCourse] =
-    useState("");
+  const [phone, setPhone] = useState<Value | undefined>();
+  const [interestedCourse, setInterestedCourse] = useState("");
+  const [source, setSource] = useState<LeadSource>("Website");
+  const [assignedTo, setAssignedTo] = useState(counselors[0]);
 
-  const [fieldErrors, setFieldErrors] =
-    useState<LeadFieldErrors>({});
-
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
-
-  const [submissionFeedback, setSubmissionFeedback] =
-    useState<SubmissionFeedback>({
-      type: "idle",
-      message: "",
-    });
+  const [fieldErrors, setFieldErrors] = useState<LeadFieldErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const submissionLockRef = useRef(false);
 
@@ -76,35 +55,17 @@ export default function InquiryForm({
       return nextErrors;
     });
 
-    if (submissionFeedback.type !== "idle") {
-      setSubmissionFeedback({
-        type: "idle",
-        message: "",
-      });
-    }
+    setFormError("");
   }
 
-  function resetForm() {
-    setFullName("");
-    setEmail("");
-    setPhone(undefined);
-    setInterestedCourse("");
-    setFieldErrors({});
-  }
-
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (submissionLockRef.current) {
       return;
     }
 
-    setSubmissionFeedback({
-      type: "idle",
-      message: "",
-    });
+    setFormError("");
 
     const clientResult = leadFormSchema.safeParse({
       fullName,
@@ -114,27 +75,17 @@ export default function InquiryForm({
     });
 
     if (!clientResult.success) {
-      const flattenedErrors = z.flattenError(
-        clientResult.error,
-      );
+      const flattenedErrors = z.flattenError(clientResult.error);
 
       setFieldErrors({
-        fullName:
-          flattenedErrors.fieldErrors.fullName?.[0],
-        email:
-          flattenedErrors.fieldErrors.email?.[0],
-        phone:
-          flattenedErrors.fieldErrors.phone?.[0],
+        fullName: flattenedErrors.fieldErrors.fullName?.[0],
+        email: flattenedErrors.fieldErrors.email?.[0],
+        phone: flattenedErrors.fieldErrors.phone?.[0],
         interestedCourse:
-          flattenedErrors.fieldErrors
-            .interestedCourse?.[0],
+          flattenedErrors.fieldErrors.interestedCourse?.[0],
       });
 
-      setSubmissionFeedback({
-        type: "error",
-        message:
-          "Please correct the highlighted fields.",
-      });
+      setFormError("Please correct the highlighted fields.");
 
       return;
     }
@@ -145,17 +96,11 @@ export default function InquiryForm({
     setIsSubmitting(true);
 
     try {
-      const serverResult = await submitLead(
-        clientResult.data,
-      );
+      const serverResult = await submitLead(clientResult.data);
 
       if (!serverResult.success) {
         setFieldErrors(serverResult.fieldErrors);
-
-        setSubmissionFeedback({
-          type: "error",
-          message: serverResult.message,
-        });
+        setFormError(serverResult.message);
 
         return;
       }
@@ -164,21 +109,20 @@ export default function InquiryForm({
         id: crypto.randomUUID(),
         ...serverResult.data,
         status: "NEW",
+        source,
+        assignedTo,
+        createdAt: new Date().toISOString(),
       };
 
       onCreateLead(newLead);
-      resetForm();
 
-      setSubmissionFeedback({
-        type: "success",
-        message: serverResult.message,
+      toast({
+        variant: "success",
+        title: "Lead added",
+        description: `${newLead.fullName} was added to the pipeline.`,
       });
     } catch {
-      setSubmissionFeedback({
-        type: "error",
-        message:
-          "An unexpected error occurred. Please try again.",
-      });
+      setFormError("An unexpected error occurred. Please try again.");
     } finally {
       submissionLockRef.current = false;
       setIsSubmitting(false);
@@ -186,122 +130,49 @@ export default function InquiryForm({
   }
 
   return (
-    <form
-      noValidate
-      aria-busy={isSubmitting}
-      onSubmit={handleSubmit}
-      className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
-    >
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#F9901C]">
-          New inquiry
-        </p>
-
-        <h2 className="mt-2 text-xl font-semibold text-[#001B31]">
-          Add a new lead
-        </h2>
-
-        <p className="mt-1 text-sm leading-6 text-slate-600">
-          Record a prospective student&apos;s contact
-          details and course interest.
-        </p>
-      </div>
-
-      <div className="mt-6 grid gap-5 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <label
-            htmlFor="fullName"
-            className="text-sm font-medium text-slate-700"
-          >
-            Full name
-          </label>
-
-          <input
+    <form noValidate aria-busy={isSubmitting} onSubmit={handleSubmit}>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field id="fullName" label="Full name" required error={fieldErrors.fullName}>
+          <Input
             id="fullName"
             name="fullName"
-            type="text"
             autoComplete="name"
             disabled={isSubmitting}
             value={fullName}
+            invalid={Boolean(fieldErrors.fullName)}
             onChange={(event) => {
               setFullName(event.target.value);
               clearFieldError("fullName");
             }}
-            className={getInputClassName(
-              fieldErrors.fullName,
-            )}
             placeholder="Enter full name"
-            aria-invalid={Boolean(
-              fieldErrors.fullName,
-            )}
-            aria-describedby={
-              fieldErrors.fullName
-                ? "fullName-error"
-                : undefined
-            }
           />
+        </Field>
 
-          {fieldErrors.fullName && (
-            <p
-              id="fullName-error"
-              role="alert"
-              className="text-sm text-red-600"
-            >
-              {fieldErrors.fullName}
-            </p>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <label
-            htmlFor="email"
-            className="text-sm font-medium text-slate-700"
-          >
-            Email address
-          </label>
-
-          <input
+        <Field id="email" label="Email address" required error={fieldErrors.email}>
+          <Input
             id="email"
             name="email"
             type="email"
             autoComplete="email"
             disabled={isSubmitting}
             value={email}
+            invalid={Boolean(fieldErrors.email)}
             onChange={(event) => {
               setEmail(event.target.value);
               clearFieldError("email");
             }}
-            className={getInputClassName(
-              fieldErrors.email,
-            )}
             placeholder="student@example.com"
-            aria-invalid={Boolean(fieldErrors.email)}
-            aria-describedby={
-              fieldErrors.email
-                ? "email-error"
-                : undefined
-            }
           />
+        </Field>
 
-          {fieldErrors.email && (
-            <p
-              id="email-error"
-              role="alert"
-              className="text-sm text-red-600"
-            >
-              {fieldErrors.email}
-            </p>
-          )}
-        </div>
-
-        <div className="grid min-w-0 gap-2">
-          <label
-            htmlFor="phone"
-            className="text-sm font-medium text-slate-700"
-          >
-            Phone number
-          </label>
-
+        <Field
+          id="phone"
+          label="Phone number"
+          required
+          error={fieldErrors.phone}
+          helpText="Select a country and enter the phone number using its standard format."
+          className="grid min-w-0 gap-2"
+        >
           <InternationalPhoneField
             id="phone"
             name="phone"
@@ -311,104 +182,85 @@ export default function InquiryForm({
               clearFieldError("phone");
             }}
             invalid={Boolean(fieldErrors.phone)}
-            describedBy={
-              fieldErrors.phone
-                ? "phone-error phone-help"
-                : "phone-help"
-            }
           />
+        </Field>
 
-          {fieldErrors.phone && (
-            <p
-              id="phone-error"
-              role="alert"
-              className="text-sm text-red-600"
-            >
-              {fieldErrors.phone}
-            </p>
-          )}
-
-          <p
-            id="phone-help"
-            className="text-xs leading-5 text-slate-500"
-          >
-            Select a country and enter the phone number
-            using its standard format.
-          </p>
-        </div>
-
-        <div className="grid gap-2">
-          <label
-            htmlFor="interestedCourse"
-            className="text-sm font-medium text-slate-700"
-          >
-            Interested course
-          </label>
-
-          <input
+        <Field
+          id="interestedCourse"
+          label="Interested course"
+          required
+          error={fieldErrors.interestedCourse}
+        >
+          <Input
             id="interestedCourse"
             name="interestedCourse"
-            type="text"
             disabled={isSubmitting}
             value={interestedCourse}
+            invalid={Boolean(fieldErrors.interestedCourse)}
             onChange={(event) => {
               setInterestedCourse(event.target.value);
               clearFieldError("interestedCourse");
             }}
-            className={getInputClassName(
-              fieldErrors.interestedCourse,
-            )}
             placeholder="AI Engineering"
-            aria-invalid={Boolean(
-              fieldErrors.interestedCourse,
-            )}
-            aria-describedby={
-              fieldErrors.interestedCourse
-                ? "interestedCourse-error"
-                : undefined
-            }
           />
+        </Field>
 
-          {fieldErrors.interestedCourse && (
-            <p
-              id="interestedCourse-error"
-              role="alert"
-              className="text-sm text-red-600"
-            >
-              {fieldErrors.interestedCourse}
-            </p>
-          )}
-        </div>
+        <Field id="source" label="Lead source" required>
+          <Select
+            id="source"
+            value={source}
+            disabled={isSubmitting}
+            onChange={(event) =>
+              setSource(event.target.value as LeadSource)
+            }
+          >
+            {leadSources.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field id="assignedTo" label="Assign to" required>
+          <Select
+            id="assignedTo"
+            value={assignedTo}
+            disabled={isSubmitting}
+            onChange={(event) => setAssignedTo(event.target.value)}
+          >
+            {counselors.map((counselor) => (
+              <option key={counselor} value={counselor}>
+                {counselor}
+              </option>
+            ))}
+          </Select>
+        </Field>
       </div>
 
-      {submissionFeedback.type !== "idle" && (
+      {formError && (
         <div
-          role={
-            submissionFeedback.type === "error"
-              ? "alert"
-              : "status"
-          }
+          role="alert"
           aria-live="polite"
-          className={`mt-6 rounded-lg border p-3 text-sm ${
-            submissionFeedback.type === "success"
-              ? "border-green-200 bg-green-50 text-green-700"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
+          className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
         >
-          {submissionFeedback.message}
+          {formError}
         </div>
       )}
 
-      <div className="mt-6 flex justify-end">
-        <button
-          type="submit"
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
           disabled={isSubmitting}
-          className="w-full rounded-lg bg-[#001B31] px-5 py-3 font-medium text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9901C] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {isSubmitting
-            ? "Submitting..."
-            : "Add lead"}
-        </button>
+          Cancel
+        </Button>
+
+        <Button type="submit" isLoading={isSubmitting}>
+          {isSubmitting ? "Adding lead..." : "Add lead"}
+        </Button>
       </div>
     </form>
   );

@@ -1,95 +1,105 @@
-const batches = [
-  {
-    id: "batch-001",
-    name: "AI Engineering — Morning",
-    course: "AI Engineering",
-    schedule: "7:00 AM – 9:00 AM",
-    students: 8,
-    capacity: 10,
-  },
-  {
-    id: "batch-002",
-    name: "Data Science — Afternoon",
-    course: "Data Science",
-    schedule: "2:00 PM – 4:00 PM",
-    students: 10,
-    capacity: 15,
-  },
-  {
-    id: "batch-003",
-    name: "Cybersecurity — Evening",
-    course: "Cybersecurity",
-    schedule: "5:00 PM – 7:00 PM",
-    students: 12,
-    capacity: 12,
-  },
-];
+import type { Metadata } from "next";
+import { CalendarDays, Users } from "lucide-react";
+
+import Avatar from "@/components/ui/Avatar";
+import Badge from "@/components/ui/Badge";
+import { Card, CardEyebrow } from "@/components/ui/Card";
+import StatCard from "@/components/ui/StatCard";
+import { batches } from "@/data/batches";
+
+export const metadata: Metadata = {
+  title: "Batches",
+};
 
 export default function BatchesPage() {
+  const totalStudents = batches.reduce(
+    (total, batch) => total + batch.students,
+    0,
+  );
+  const totalCapacity = batches.reduce(
+    (total, batch) => total + batch.capacity,
+    0,
+  );
+
   return (
-    <section className="rounded-xl bg-white p-8 shadow-sm">
-      <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-        Batch management
-      </p>
+    <div className="grid gap-6">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-8">
+        <CardEyebrow>Batch management</CardEyebrow>
 
-      <h1 className="mt-3 text-3xl font-bold text-slate-900">
-        Batches
-      </h1>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-primary-900 sm:text-3xl">
+          Batches
+        </h1>
 
-      <p className="mt-2 text-slate-600">
-        View schedules, capacity, and student occupancy.
-      </p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+          View schedules, instructors, capacity, and student occupancy
+          across every running batch.
+        </p>
+      </section>
 
-      <div className="mt-8 grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Running batches" value={batches.length} icon={CalendarDays} />
+        <StatCard label="Enrolled students" value={totalStudents} icon={Users} />
+        <StatCard
+          label="Overall occupancy"
+          value={`${Math.round((totalStudents / totalCapacity) * 100)}%`}
+          icon={Users}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {batches.map((batch) => {
           const isFull = batch.students >= batch.capacity;
+          const occupancy = Math.round(
+            (batch.students / batch.capacity) * 100,
+          );
 
           return (
-            <article
-              key={batch.id}
-              className="rounded-xl border border-slate-200 p-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-semibold text-slate-900">
+            <Card key={batch.id} className="flex flex-col p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-lg font-semibold text-primary-900">
                     {batch.name}
                   </h2>
-
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="mt-1 text-sm text-slate-500">
                     {batch.course}
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-600">
-                    Schedule: {batch.schedule}
                   </p>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-sm font-medium ${
-                    isFull
-                      ? "bg-red-100 text-red-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {isFull ? "Full" : "Available"}
-                </span>
+                <Badge tone={isFull ? "red" : "green"}>
+                  {isFull ? "Full" : "Open"}
+                </Badge>
+              </div>
+
+              <p className="mt-4 text-sm text-slate-600">
+                Schedule: {batch.schedule}
+              </p>
+
+              <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                <Avatar name={batch.instructor} size="sm" />
+                {batch.instructor}
               </div>
 
               <div className="mt-5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">
-                    Occupancy
-                  </span>
-
-                  <span className="font-medium text-slate-900">
+                  <span className="text-slate-500">Occupancy</span>
+                  <span className="font-medium tabular-nums text-slate-800">
                     {batch.students}/{batch.capacity}
                   </span>
                 </div>
+
+                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className={`h-full rounded-full ${
+                      isFull ? "bg-red-500" : "bg-primary-800"
+                    }`}
+                    style={{ width: `${occupancy}%` }}
+                  />
+                </div>
               </div>
-            </article>
+            </Card>
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }

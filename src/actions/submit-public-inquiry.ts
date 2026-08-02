@@ -1,5 +1,7 @@
 "use server";
 
+import * as z from "zod";
+
 import {
   publicInquirySchema,
   type PublicInquiryFormData,
@@ -37,7 +39,7 @@ export async function submitPublicInquiry(
   const result = publicInquirySchema.safeParse(input);
 
   if (!result.success) {
-    const flattenedErrors = result.error.flatten();
+    const flattenedErrors = z.flattenError(result.error);
 
     return {
       success: false,

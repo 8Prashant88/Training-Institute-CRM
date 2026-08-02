@@ -1,7 +1,13 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 import EditLeadForm from "@/components/EditLeadForm";
+import LeadActivityTimeline from "@/components/leads/LeadActivityTimeline";
+import LeadDetailHeader from "@/components/leads/LeadDetailHeader";
+import LeadOverview from "@/components/leads/LeadOverview";
+import Tabs from "@/components/ui/Tabs";
 import { leads } from "@/data/leads";
 import type { LeadFormData } from "@/schemas/lead-schema";
 
@@ -11,14 +17,13 @@ type LeadDetailPageProps = {
   }>;
 };
 
-function normalizePhoneNumber(phone: string) {
-  const trimmedPhone = phone.trim();
+export async function generateMetadata({
+  params,
+}: LeadDetailPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const lead = leads.find((currentLead) => currentLead.id === id);
 
-  if (trimmedPhone.startsWith("+")) {
-    return trimmedPhone;
-  }
-
-  return `+977${trimmedPhone}`;
+  return { title: lead ? lead.fullName : "Lead not found" };
 }
 
 export default async function LeadDetailPage({
@@ -26,9 +31,7 @@ export default async function LeadDetailPage({
 }: LeadDetailPageProps) {
   const { id } = await params;
 
-  const lead = leads.find(
-    (currentLead) => currentLead.id === id,
-  );
+  const lead = leads.find((currentLead) => currentLead.id === id);
 
   if (!lead) {
     notFound();
@@ -37,47 +40,43 @@ export default async function LeadDetailPage({
   const initialData: LeadFormData = {
     fullName: lead.fullName,
     email: lead.email,
-    phone: normalizePhoneNumber(lead.phone),
-    interestedCourse: lead.course,
+    phone: lead.phone,
+    interestedCourse: lead.interestedCourse,
   };
 
   return (
-    <section className="min-w-0">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#F9901C]">
-              Lead details
-            </p>
+    <div className="grid min-w-0 gap-6">
+      <Link
+        href="/dashboard/leads"
+        className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:rounded-md"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Back to leads
+      </Link>
 
-            <h1 className="mt-2 break-words text-2xl font-bold text-[#001B31] sm:text-3xl">
-              {lead.fullName}
-            </h1>
+      <LeadDetailHeader lead={lead} />
 
-            <p className="mt-2 break-all text-sm text-slate-600">
-              Lead ID: {lead.id}
-            </p>
-          </div>
-
-          <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-            {lead.status}
-          </span>
-        </div>
-
-        <div className="mt-6">
-          <Link
-            href="/dashboard/leads"
-            className="inline-flex rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9901C]"
-          >
-            ← Back to leads
-          </Link>
-        </div>
-      </div>
-
-      <EditLeadForm
-        leadId={lead.id}
-        initialData={initialData}
+      <Tabs
+        tabs={[
+          {
+            key: "overview",
+            label: "Overview",
+            content: <LeadOverview lead={lead} />,
+          },
+          {
+            key: "activity",
+            label: "Activity",
+            content: <LeadActivityTimeline lead={lead} />,
+          },
+          {
+            key: "edit",
+            label: "Edit details",
+            content: (
+              <EditLeadForm leadId={lead.id} initialData={initialData} />
+            ),
+          },
+        ]}
       />
-    </section>
+    </div>
   );
 }

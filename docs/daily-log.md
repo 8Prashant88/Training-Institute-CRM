@@ -258,3 +258,29 @@
 - Component props define the contract between parent and child components.
 - Reusable UI components reduce styling duplication and improve consistency.
 - Git history provides a safe recovery point during reconstruction exercises.
+
+## Day 8 — Relational Database Design
+
+### What I completed
+
+- Distinguished database schema from stored data.
+- Identified the core CRM entities.
+- Designed relationships between users, leads, notes, courses, batches, and enrollments.
+- Created a Mermaid entity-relationship diagram.
+- Defined primary, foreign, and unique keys.
+- Documented required and nullable fields.
+- Defined default values and business constraints.
+- Planned archive and deletion behavior.
+- Reviewed duplicate enrollment, missing counselor, deleted course, full batch, and lead deletion scenarios.
+- Identified important database indexes.
+
+### What I learned
+
+- A schema defines database structure and rules.
+- Foreign keys protect relationships between records.
+- Cardinality describes how entities relate.
+- Nullability must reflect real workflows.
+- Unique constraints protect important business rules.
+- Some rules require transactions rather than basic constraints.
+- Soft deletion preserves historical CRM data.
+- Database design should be tested against failure scenarios before implementation.

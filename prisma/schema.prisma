@@ -1,0 +1,152 @@
+generator client {
+  provider   = "prisma-client"
+  output     = "../src/generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  COUNSELOR
+}
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  WALK_IN
+  SOCIAL_MEDIA
+  PHONE_INQUIRY
+  EVENT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  FOLLOW_UP
+  ENROLLED
+  LOST
+}
+
+enum CourseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BatchStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  fullName  String
+  email     String   @unique
+  role      UserRole @default(COUNSELOR)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedLeads Lead[]     @relation("AssignedCounselor")
+  leadNotes     LeadNote[] @relation("LeadNoteAuthor")
+}
+
+model Course {
+  id        String       @id @default(uuid()) @db.Uuid
+  title     String       @unique
+  duration  String
+  status    CourseStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  leads   Lead[]
+  batches Batch[]
+}
+
+model Lead {
+  id                  String     @id @default(uuid()) @db.Uuid
+  fullName            String
+  phone               String
+  email               String?
+  interestedCourseId  String     @db.Uuid
+  source              LeadSource @default(WEBSITE)
+  status              LeadStatus @default(NEW)
+  assignedCounselorId String?    @db.Uuid
+  nextFollowUpAt      DateTime?
+  archivedAt          DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  interestedCourse  Course      @relation(fields: [interestedCourseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignedCounselor User?       @relation("AssignedCounselor", fields: [assignedCounselorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  notes             LeadNote[]
+  enrollment        Enrollment?
+
+  @@index([status])
+  @@index([assignedCounselorId])
+  @@index([interestedCourseId])
+  @@index([nextFollowUpAt])
+  @@index([createdAt])
+  @@index([archivedAt])
+}
+
+model LeadNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  leadId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  note      String
+  createdAt DateTime @default(now())
+
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  author User @relation("LeadNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([leadId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Batch {
+  id        String      @id @default(uuid()) @db.Uuid
+  courseId  String      @db.Uuid
+  title     String
+  capacity  Int
+  startDate DateTime    @db.Date
+  endDate   DateTime    @db.Date
+  status    BatchStatus @default(UPCOMING)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  enrollments Enrollment[]
+
+  @@index([courseId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model Enrollment {
+  id         String           @id @default(uuid()) @db.Uuid
+  leadId     String           @unique @db.Uuid
+  batchId    String           @db.Uuid
+  enrolledAt DateTime         @default(now())
+  status     EnrollmentStatus @default(ACTIVE)
+  updatedAt  DateTime         @updatedAt
+
+  lead  Lead  @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([batchId])
+  @@index([status])
+  @@index([enrolledAt])
+}

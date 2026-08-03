@@ -284,3 +284,53 @@
 - Some rules require transactions rather than basic constraints.
 - Soft deletion preserves historical CRM data.
 - Database design should be tested against failure scenarios before implementation.
+## Day 9 — PostgreSQL, Prisma, Migrations, and Seed Data
+
+### What I completed
+
+- Created a Supabase project with a hosted PostgreSQL database.
+- Installed Prisma ORM, Prisma Client, the PostgreSQL driver adapter, and supporting packages.
+- Initialized Prisma for PostgreSQL.
+- Configured separate database connections for application runtime and migrations.
+- Used a pooled connection for the deployed application.
+- Used a direct/session connection for Prisma migrations.
+- Translated the relational database design into Prisma models.
+- Created Prisma enums for roles, lead sources, lead statuses, course statuses, batch statuses, and enrollment statuses.
+- Defined primary keys, foreign keys, unique constraints, default values, nullable fields, relations, and indexes.
+- Generated and validated the Prisma Client.
+- Created the initial migration without immediately applying it.
+- Inspected the generated SQL before changing the database.
+- Added database-level checks for positive batch capacity and valid batch date ranges.
+- Applied the initial migration to the Supabase PostgreSQL database.
+- Verified that the migration files and database migration history were synchronized.
+- Created repeatable seed data for users, courses, batches, leads, notes, and enrollment.
+- Ran the seed process twice successfully without creating duplicate records.
+- Configured automatic Prisma Client generation using the postinstall script.
+- Added safe database-variable placeholders to .env.example.
+- Excluded generated Prisma files, secrets, and local AI-tool configuration from Git.
+- Added the database environment variables to Vercel.
+- Ran Prisma validation, migration status, TypeScript, ESLint, and production build checks.
+
+### What I learned
+
+- PostgreSQL is the actual relational database that stores application records.
+- Supabase hosts and manages the PostgreSQL database.
+- Prisma does not replace PostgreSQL; it provides a typed application layer for working with it.
+- The Prisma schema describes the current desired database structure.
+- A migration contains versioned SQL instructions that change the database structure.
+- Migration files allow different environments and developers to reproduce the same database schema.
+- The _prisma_migrations table records which migrations have already been applied.
+- --create-only allows generated migration SQL to be inspected and customized before execution.
+- Database constraints protect important rules even when application code contains a bug.
+- Prisma Client is generated from the schema and provides type-safe database queries.
+- Prisma relation fields help navigate connected records but do not always become physical database columns.
+- Foreign-key scalar fields such as courseId and authorId are stored in PostgreSQL.
+- Seeding inserts predictable development data after the database structure exists.
+- upsert makes a seed script repeatable by updating or creating known records.
+- Migrations primarily change structure, while normal application queries create and update data.
+- A pooled connection is suitable for temporary serverless application connections.
+- A direct or session connection is more appropriate for migrations.
+- Environment variables containing database credentials must never be committed.
+- Creating database tables does not automatically connect existing forms to the database.
+- The current public inquiry and dashboard lead forms still require Prisma create operations before their submissions become permanent.
+- React state is temporary, while PostgreSQL records survive refreshes and can be shared across users.

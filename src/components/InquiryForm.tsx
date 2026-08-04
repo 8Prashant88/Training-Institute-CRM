@@ -1,30 +1,107 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import {
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import type { Value } from "react-phone-number-input";
 import * as z from "zod";
 
-import { submitLead } from "@/actions/submit-lead";
+import {
+  submitLead,
+  type SubmitLeadInput,
+} from "@/actions/submit-lead";
+import InternationalPhoneField from "@/components/InternationalPhoneField";
 import Button from "@/components/ui/Button";
 import Field from "@/components/ui/Field";
-import { Input, Select } from "@/components/ui/Input";
-import { useToast } from "@/components/ui/Toast";
-import InternationalPhoneField from "@/components/InternationalPhoneField";
 import {
-  leadFormSchema,
-  type LeadFormData,
-} from "@/schemas/lead-schema";
-import { counselors } from "@/data/leads";
-import { leadSources, type Lead, type LeadSource } from "@/types/lead";
+  Input,
+  Select,
+} from "@/components/ui/Input";
+import { useToast } from "@/components/ui/Toast";
+import { leadFormSchema } from "@/schemas/lead-schema";
+import type {
+  CounselorOption,
+  CourseOption,
+} from "@/types/lead-options";
+import type { Lead } from "@/types/lead";
+
+const leadSourceValues = [
+  "WEBSITE",
+  "REFERRAL",
+  "WALK_IN",
+  "SOCIAL_MEDIA",
+  "PHONE_INQUIRY",
+  "EVENT",
+] as const;
+
+const leadSourceOptions: Array<{
+  value: SubmitLeadInput["source"];
+  label: string;
+}> = [
+  {
+    value: "WEBSITE",
+    label: "Website",
+  },
+  {
+    value: "REFERRAL",
+    label: "Referral",
+  },
+  {
+    value: "WALK_IN",
+    label: "Walk-in",
+  },
+  {
+    value: "SOCIAL_MEDIA",
+    label: "Social Media",
+  },
+  {
+    value: "PHONE_INQUIRY",
+    label: "Phone Inquiry",
+  },
+  {
+    value: "EVENT",
+    label: "Event",
+  },
+];
+
+const internalLeadFormSchema = leadFormSchema
+  .omit({
+    interestedCourse: true,
+  })
+  .extend({
+    interestedCourseId: z.uuid({
+      error: "Select a valid course.",
+    }),
+
+    source: z.enum(leadSourceValues, {
+      error: "Select a valid lead source.",
+    }),
+
+    assignedCounselorId: z.uuid({
+      error: "Select a valid counselor.",
+    }),
+  });
+
+type InternalLeadFormData = z.infer<
+  typeof internalLeadFormSchema
+>;
+
+type LeadFieldErrors = Partial<
+  Record<keyof InternalLeadFormData, string>
+>;
 
 type InquiryFormProps = {
+  courses: CourseOption[];
+  counselors: CounselorOption[];
   onCreateLead: (lead: Lead) => void;
   onCancel: () => void;
 };
 
-type LeadFieldErrors = Partial<Record<keyof LeadFormData, string>>;
-
 export default function InquiryForm({
+  courses,
+  counselors,
   onCreateLead,
   onCancel,
 }: InquiryFormProps) {
@@ -32,24 +109,52 @@ export default function InquiryForm({
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState<Value | undefined>();
-  const [interestedCourse, setInterestedCourse] = useState("");
-  const [source, setSource] = useState<LeadSource>("Website");
-  const [assignedTo, setAssignedTo] = useState(counselors[0]);
 
-  const [fieldErrors, setFieldErrors] = useState<LeadFieldErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
+  const [phone, setPhone] =
+    useState<Value | undefined>();
+
+  const [
+    interestedCourseId,
+    setInterestedCourseId,
+  ] = useState("");
+
+  const [source, setSource] =
+    useState<SubmitLeadInput["source"]>(
+      "WEBSITE",
+    );
+
+  const [
+    assignedCounselorId,
+    setAssignedCounselorId,
+  ] = useState("");
+
+  const [fieldErrors, setFieldErrors] =
+    useState<LeadFieldErrors>({});
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [formError, setFormError] =
+    useState("");
 
   const submissionLockRef = useRef(false);
 
-  function clearFieldError(field: keyof LeadFormData) {
+  const hasRequiredOptions =
+    courses.length > 0 &&
+    counselors.length > 0;
+
+  function clearFieldError(
+    field: keyof InternalLeadFormData,
+  ) {
     setFieldErrors((currentErrors) => {
       if (!currentErrors[field]) {
         return currentErrors;
       }
 
-      const nextErrors = { ...currentErrors };
+      const nextErrors = {
+        ...currentErrors,
+      };
+
       delete nextErrors[field];
 
       return nextErrors;
@@ -58,7 +163,9 @@ export default function InquiryForm({
     setFormError("");
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     if (submissionLockRef.current) {
@@ -67,62 +174,87 @@ export default function InquiryForm({
 
     setFormError("");
 
-    const clientResult = leadFormSchema.safeParse({
-      fullName,
-      email,
-      phone: phone ?? "",
-      interestedCourse,
-    });
-
-    if (!clientResult.success) {
-      const flattenedErrors = z.flattenError(clientResult.error);
-
-      setFieldErrors({
-        fullName: flattenedErrors.fieldErrors.fullName?.[0],
-        email: flattenedErrors.fieldErrors.email?.[0],
-        phone: flattenedErrors.fieldErrors.phone?.[0],
-        interestedCourse:
-          flattenedErrors.fieldErrors.interestedCourse?.[0],
+    const clientResult =
+      internalLeadFormSchema.safeParse({
+        fullName,
+        email,
+        phone: phone ?? "",
+        interestedCourseId,
+        source,
+        assignedCounselorId,
       });
 
-      setFormError("Please correct the highlighted fields.");
+    if (!clientResult.success) {
+      const errors = z.flattenError(
+        clientResult.error,
+      );
+
+      setFieldErrors({
+        fullName:
+          errors.fieldErrors.fullName?.[0],
+
+        email:
+          errors.fieldErrors.email?.[0],
+
+        phone:
+          errors.fieldErrors.phone?.[0],
+
+        interestedCourseId:
+          errors.fieldErrors
+            .interestedCourseId?.[0],
+
+        source:
+          errors.fieldErrors.source?.[0],
+
+        assignedCounselorId:
+          errors.fieldErrors
+            .assignedCounselorId?.[0],
+      });
+
+      setFormError(
+        "Please correct the highlighted fields.",
+      );
 
       return;
     }
 
     setFieldErrors({});
-
     submissionLockRef.current = true;
     setIsSubmitting(true);
 
     try {
-      const serverResult = await submitLead(clientResult.data);
+      const serverResult = await submitLead(
+        clientResult.data,
+      );
 
       if (!serverResult.success) {
-        setFieldErrors(serverResult.fieldErrors);
+        setFieldErrors(
+          serverResult.fieldErrors,
+        );
+
         setFormError(serverResult.message);
 
         return;
       }
 
-      const newLead: Lead = {
-        id: crypto.randomUUID(),
-        ...serverResult.data,
-        status: "NEW",
-        source,
-        assignedTo,
-        createdAt: new Date().toISOString(),
-      };
+      const createdLead = serverResult.data;
 
-      onCreateLead(newLead);
+      onCreateLead(createdLead);
 
       toast({
         variant: "success",
         title: "Lead added",
-        description: `${newLead.fullName} was added to the pipeline.`,
+        description: `${createdLead.fullName} was saved to the database.`,
       });
-    } catch {
-      setFormError("An unexpected error occurred. Please try again.");
+    } catch (error) {
+      console.error(
+        "Lead submission failed:",
+        error,
+      );
+
+      setFormError(
+        "An unexpected error occurred. Please try again.",
+      );
     } finally {
       submissionLockRef.current = false;
       setIsSubmitting(false);
@@ -130,16 +262,27 @@ export default function InquiryForm({
   }
 
   return (
-    <form noValidate aria-busy={isSubmitting} onSubmit={handleSubmit}>
+    <form
+      noValidate
+      aria-busy={isSubmitting}
+      onSubmit={handleSubmit}
+    >
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="fullName" label="Full name" required error={fieldErrors.fullName}>
+        <Field
+          id="fullName"
+          label="Full name"
+          required
+          error={fieldErrors.fullName}
+        >
           <Input
             id="fullName"
             name="fullName"
             autoComplete="name"
             disabled={isSubmitting}
             value={fullName}
-            invalid={Boolean(fieldErrors.fullName)}
+            invalid={Boolean(
+              fieldErrors.fullName,
+            )}
             onChange={(event) => {
               setFullName(event.target.value);
               clearFieldError("fullName");
@@ -148,7 +291,12 @@ export default function InquiryForm({
           />
         </Field>
 
-        <Field id="email" label="Email address" required error={fieldErrors.email}>
+        <Field
+          id="email"
+          label="Email address"
+          required
+          error={fieldErrors.email}
+        >
           <Input
             id="email"
             name="email"
@@ -156,7 +304,9 @@ export default function InquiryForm({
             autoComplete="email"
             disabled={isSubmitting}
             value={email}
-            invalid={Boolean(fieldErrors.email)}
+            invalid={Boolean(
+              fieldErrors.email,
+            )}
             onChange={(event) => {
               setEmail(event.target.value);
               clearFieldError("email");
@@ -181,62 +331,153 @@ export default function InquiryForm({
               setPhone(value);
               clearFieldError("phone");
             }}
-            invalid={Boolean(fieldErrors.phone)}
+            invalid={Boolean(
+              fieldErrors.phone,
+            )}
           />
         </Field>
 
         <Field
-          id="interestedCourse"
+          id="interestedCourseId"
           label="Interested course"
           required
-          error={fieldErrors.interestedCourse}
+          error={
+            fieldErrors.interestedCourseId
+          }
         >
-          <Input
-            id="interestedCourse"
-            name="interestedCourse"
-            disabled={isSubmitting}
-            value={interestedCourse}
-            invalid={Boolean(fieldErrors.interestedCourse)}
-            onChange={(event) => {
-              setInterestedCourse(event.target.value);
-              clearFieldError("interestedCourse");
-            }}
-            placeholder="AI Engineering"
-          />
-        </Field>
-
-        <Field id="source" label="Lead source" required>
           <Select
-            id="source"
-            value={source}
-            disabled={isSubmitting}
-            onChange={(event) =>
-              setSource(event.target.value as LeadSource)
+            id="interestedCourseId"
+            name="interestedCourseId"
+            value={interestedCourseId}
+            disabled={
+              isSubmitting ||
+              courses.length === 0
             }
+            invalid={Boolean(
+              fieldErrors.interestedCourseId,
+            )}
+            onChange={(event) => {
+              setInterestedCourseId(
+                event.target.value,
+              );
+
+              clearFieldError(
+                "interestedCourseId",
+              );
+            }}
           >
-            {leadSources.map((option) => (
-              <option key={option} value={option}>
-                {option}
+            <option value="">
+              {courses.length === 0
+                ? "No active courses available"
+                : "Select a course"}
+            </option>
+
+            {courses.map((course) => (
+              <option
+                key={course.id}
+                value={course.id}
+              >
+                {course.title}
               </option>
             ))}
           </Select>
         </Field>
 
-        <Field id="assignedTo" label="Assign to" required>
+        <Field
+          id="source"
+          label="Lead source"
+          required
+          error={fieldErrors.source}
+        >
           <Select
-            id="assignedTo"
-            value={assignedTo}
+            id="source"
+            name="source"
+            value={source}
             disabled={isSubmitting}
-            onChange={(event) => setAssignedTo(event.target.value)}
+            invalid={Boolean(
+              fieldErrors.source,
+            )}
+            onChange={(event) => {
+              setSource(
+                event.target
+                  .value as SubmitLeadInput["source"],
+              );
+
+              clearFieldError("source");
+            }}
           >
-            {counselors.map((counselor) => (
-              <option key={counselor} value={counselor}>
-                {counselor}
-              </option>
-            ))}
+            {leadSourceOptions.map(
+              (option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </option>
+              ),
+            )}
+          </Select>
+        </Field>
+
+        <Field
+          id="assignedCounselorId"
+          label="Assign to"
+          required
+          error={
+            fieldErrors.assignedCounselorId
+          }
+        >
+          <Select
+            id="assignedCounselorId"
+            name="assignedCounselorId"
+            value={assignedCounselorId}
+            disabled={
+              isSubmitting ||
+              counselors.length === 0
+            }
+            invalid={Boolean(
+              fieldErrors.assignedCounselorId,
+            )}
+            onChange={(event) => {
+              setAssignedCounselorId(
+                event.target.value,
+              );
+
+              clearFieldError(
+                "assignedCounselorId",
+              );
+            }}
+          >
+            <option value="">
+              {counselors.length === 0
+                ? "No active counselors available"
+                : "Select a counselor"}
+            </option>
+
+            {counselors.map(
+              (counselor) => (
+                <option
+                  key={counselor.id}
+                  value={counselor.id}
+                >
+                  {counselor.fullName}
+                </option>
+              ),
+            )}
           </Select>
         </Field>
       </div>
+
+      {!hasRequiredOptions && (
+        <div
+          role="alert"
+          className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+        >
+          At least one active course and one
+          active counselor are required before a
+          lead can be added.
+        </div>
+      )}
 
       {formError && (
         <div
@@ -258,8 +499,14 @@ export default function InquiryForm({
           Cancel
         </Button>
 
-        <Button type="submit" isLoading={isSubmitting}>
-          {isSubmitting ? "Adding lead..." : "Add lead"}
+        <Button
+          type="submit"
+          isLoading={isSubmitting}
+          disabled={!hasRequiredOptions}
+        >
+          {isSubmitting
+            ? "Adding lead..."
+            : "Add lead"}
         </Button>
       </div>
     </form>

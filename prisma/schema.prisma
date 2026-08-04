@@ -92,6 +92,7 @@ model Lead {
   assignedCounselor User?       @relation("AssignedCounselor", fields: [assignedCounselorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   notes             LeadNote[]
   enrollment        Enrollment?
+  inquiryMessage String? @db.Text
 
   @@index([status])
   @@index([assignedCounselorId])

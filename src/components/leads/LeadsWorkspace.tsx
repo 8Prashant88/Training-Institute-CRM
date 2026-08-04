@@ -17,10 +17,16 @@ import StatCard from "@/components/ui/StatCard";
 import { useToast } from "@/components/ui/Toast";
 import { sortLeads, type SortDirection, type SortKey } from "@/components/leads/lead-sort";
 import type { Lead, LeadSource, LeadStatus } from "@/types/lead";
+import type {
+  CounselorOption,
+  CourseOption,
+} from "@/types/lead-options";
 
 type LeadsWorkspaceProps = {
   initialLeads: Lead[];
   initialQuery?: string;
+  courses: CourseOption[];
+  counselors: CounselorOption[];
 };
 
 const PAGE_SIZE = 8;
@@ -28,6 +34,8 @@ const PAGE_SIZE = 8;
 export default function LeadsWorkspace({
   initialLeads,
   initialQuery = "",
+  courses,
+  counselors,
 }: LeadsWorkspaceProps) {
   const { toast } = useToast();
 
@@ -305,9 +313,11 @@ export default function LeadsWorkspace({
 
         <div className="mt-6">
           <InquiryForm
-            onCreateLead={handleCreateLead}
-            onCancel={() => setIsAddDialogOpen(false)}
-          />
+  courses={courses}
+  counselors={counselors}
+  onCreateLead={handleCreateLead}
+  onCancel={() => setIsAddDialogOpen(false)}
+/>
         </div>
       </Dialog>
 

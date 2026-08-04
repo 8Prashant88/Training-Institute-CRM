@@ -2,20 +2,36 @@ import type { Metadata } from "next";
 
 import LeadsWorkspace from "@/components/leads/LeadsWorkspace";
 import { CardEyebrow } from "@/components/ui/Card";
-import { leads } from "@/data/leads";
+import { listActiveCourses } from "@/services/course-service";
+import { listLeads } from "@/services/lead-service";
+import { listActiveCounselors } from "@/services/user-service";
 
 export const metadata: Metadata = {
   title: "Leads",
 };
 
 type LeadsPageProps = {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+  }>;
 };
 
 export default async function LeadsPage({
   searchParams,
 }: LeadsPageProps) {
   const { q } = await searchParams;
+
+  const [leads, courses, counselors] =
+    await Promise.all([
+      listLeads(),
+      listActiveCourses(),
+      listActiveCounselors(),
+    ]);
+
+  const courseOptions = courses.map((course) => ({
+    id: course.id,
+    title: course.title,
+  }));
 
   return (
     <div className="grid min-w-0 gap-6">
@@ -27,13 +43,18 @@ export default async function LeadsPage({
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-          Track inquiries end to end — search, filter by pipeline stage,
-          update status in bulk, and open a lead to see full contact
-          details.
+          Track inquiries end to end — search, filter
+          by pipeline stage, assign counselors, and
+          review lead information.
         </p>
       </section>
 
-      <LeadsWorkspace initialLeads={leads} initialQuery={q ?? ""} />
+      <LeadsWorkspace
+        initialLeads={leads}
+        initialQuery={q ?? ""}
+        courses={courseOptions}
+        counselors={counselors}
+      />
     </div>
   );
 }

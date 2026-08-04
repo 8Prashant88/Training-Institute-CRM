@@ -1,77 +1,237 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
 import {
-  leadFormSchema,
-  type LeadFormData,
-} from "@/schemas/lead-schema";
+  CourseStatus,
+  UserRole,
+} from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
+import { leadFormSchema } from "@/schemas/lead-schema";
 
-type LeadFieldErrors = Partial<
-  Record<keyof LeadFormData, string>
+const updateLeadSchema = leadFormSchema
+  .omit({
+    interestedCourse: true,
+  })
+  .extend({
+    interestedCourseId: z.uuid({
+      error: "Select a valid course.",
+    }),
+
+    assignedCounselorId: z.union([
+      z.literal(""),
+      z.uuid({
+        error: "Select a valid counselor.",
+      }),
+    ]),
+  });
+
+export type UpdateLeadInput = z.infer<
+  typeof updateLeadSchema
+>;
+
+type UpdateLeadFieldErrors = Partial<
+  Record<keyof UpdateLeadInput, string>
 >;
 
 export type UpdateLeadResult =
   | {
       success: true;
       message: string;
-      data: LeadFormData;
+      data: {
+        fullName: string;
+        email: string;
+        phone: string;
+        interestedCourseId: string;
+        assignedCounselorId: string;
+      };
       fieldErrors: Record<string, never>;
     }
   | {
       success: false;
       message: string;
       data?: undefined;
-      fieldErrors: LeadFieldErrors;
+      fieldErrors: UpdateLeadFieldErrors;
     };
-
-function wait(milliseconds: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-}
 
 export async function updateLead(
   leadId: string,
   input: unknown,
 ): Promise<UpdateLeadResult> {
-  await wait(800);
+  try {
+    const leadIdResult = z
+      .uuid()
+      .safeParse(leadId);
 
-  if (!leadId.trim()) {
+    if (!leadIdResult.success) {
+      return {
+        success: false,
+        message: "The lead could not be found.",
+        fieldErrors: {},
+      };
+    }
+
+    const result =
+      updateLeadSchema.safeParse(input);
+
+    if (!result.success) {
+      const errors = z.flattenError(
+        result.error,
+      );
+
+      return {
+        success: false,
+        message:
+          "The submitted information contains validation errors.",
+
+        fieldErrors: {
+          fullName:
+            errors.fieldErrors.fullName?.[0],
+
+          email:
+            errors.fieldErrors.email?.[0],
+
+          phone:
+            errors.fieldErrors.phone?.[0],
+
+          interestedCourseId:
+            errors.fieldErrors
+              .interestedCourseId?.[0],
+
+          assignedCounselorId:
+            errors.fieldErrors
+              .assignedCounselorId?.[0],
+        },
+      };
+    }
+
+    const {
+      fullName,
+      email,
+      phone,
+      interestedCourseId,
+      assignedCounselorId,
+    } = result.data;
+
+    const [course, counselor] =
+      await Promise.all([
+        prisma.course.findFirst({
+          where: {
+            id: interestedCourseId,
+            status: CourseStatus.ACTIVE,
+          },
+
+          select: {
+            id: true,
+          },
+        }),
+
+        assignedCounselorId
+          ? prisma.user.findFirst({
+              where: {
+                id: assignedCounselorId,
+                role: UserRole.COUNSELOR,
+                isActive: true,
+              },
+
+              select: {
+                id: true,
+              },
+            })
+          : Promise.resolve(null),
+      ]);
+
+    if (!course) {
+      return {
+        success: false,
+        message:
+          "The selected course is no longer available.",
+
+        fieldErrors: {
+          interestedCourseId:
+            "Select an active course.",
+        },
+      };
+    }
+
+    if (
+      assignedCounselorId &&
+      !counselor
+    ) {
+      return {
+        success: false,
+        message:
+          "The selected counselor is no longer available.",
+
+        fieldErrors: {
+          assignedCounselorId:
+            "Select an active counselor.",
+        },
+      };
+    }
+
+    const updatedLead =
+      await prisma.lead.update({
+        where: {
+          id: leadIdResult.data,
+          archivedAt: null,
+        },
+
+        data: {
+          fullName: fullName.trim(),
+
+          email: email
+            .trim()
+            .toLowerCase(),
+
+          phone: phone.trim(),
+
+          interestedCourseId,
+
+          assignedCounselorId:
+            assignedCounselorId || null,
+        },
+
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          interestedCourseId: true,
+          assignedCounselorId: true,
+        },
+      });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/leads");
+    revalidatePath(
+      `/dashboard/leads/${updatedLead.id}`,
+    );
+    revalidatePath("/dashboard/courses");
+
     return {
-      success: false,
-      message: "The lead ID is missing.",
+      success: true,
+      message: "Lead updated successfully.",
+
+      data: {
+        fullName: updatedLead.fullName,
+        email: updatedLead.email ?? "",
+        phone: updatedLead.phone,
+
+        interestedCourseId:
+          updatedLead.interestedCourseId,
+
+        assignedCounselorId:
+          updatedLead.assignedCounselorId ??
+          "",
+      },
+
       fieldErrors: {},
     };
-  }
+  } catch (error) {
+    console.error("updateLead failed", error);
 
-  const result = leadFormSchema.safeParse(input);
-
-  if (!result.success) {
-    const flattenedErrors = z.flattenError(result.error);
-
-    return {
-      success: false,
-      message:
-        "The submitted information contains validation errors.",
-      fieldErrors: {
-        fullName:
-          flattenedErrors.fieldErrors.fullName?.[0],
-        email:
-          flattenedErrors.fieldErrors.email?.[0],
-        phone:
-          flattenedErrors.fieldErrors.phone?.[0],
-        interestedCourse:
-          flattenedErrors.fieldErrors
-            .interestedCourse?.[0],
-      },
-    };
-  }
-
-  if (
-    result.data.email.toLowerCase() ===
-    "fail@example.com"
-  ) {
     return {
       success: false,
       message:
@@ -79,11 +239,4 @@ export async function updateLead(
       fieldErrors: {},
     };
   }
-
-  return {
-    success: true,
-    message: "Lead updated successfully.",
-    data: result.data,
-    fieldErrors: {},
-  };
 }

@@ -2,8 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, Globe2, ShieldCheck } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/Button";
-import { courses } from "@/data/courses";
-import { formatCurrency } from "@/lib/format";
+import { listActiveCourses } from "@/services/course-service";
 import PublicInquiryForm from "@/components/PublicInquiryForm";
 
 const trustPoints = [
@@ -27,8 +26,9 @@ const trustPoints = [
   },
 ];
 
-export default function HomePage() {
-  const featuredCourses = courses.filter((course) => course.active);
+export default async function HomePage() {
+  const featuredCourses =
+    await listActiveCourses();
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-50">
@@ -92,22 +92,21 @@ export default function HomePage() {
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {featuredCourses.map((course) => (
               <div
-                key={course.id}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)]"
-              >
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  {course.category}
-                </p>
-                <h3 className="mt-1 text-base font-semibold text-primary-900">
-                  {course.name}
-                </h3>
-                <p className="mt-2 text-sm text-slate-600">
-                  {course.duration}
-                </p>
-                <p className="mt-3 text-sm font-semibold text-primary-800">
-                  {formatCurrency(course.fee)}
-                </p>
-              </div>
+  key={course.id}
+  className="rounded-xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)]"
+>
+  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+    Training program
+  </p>
+
+  <h3 className="mt-1 text-base font-semibold text-primary-900">
+    {course.title}
+  </h3>
+
+  <p className="mt-2 text-sm text-slate-600">
+    {course.duration}
+  </p>
+</div>
             ))}
           </div>
         </div>
@@ -153,7 +152,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          <PublicInquiryForm />
+         <PublicInquiryForm
+  courses={featuredCourses}
+/>
         </div>
       </section>
 

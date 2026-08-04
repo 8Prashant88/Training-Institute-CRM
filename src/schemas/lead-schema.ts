@@ -46,24 +46,27 @@ export const leadFormSchema = z.object({
 });
 
 export const publicInquirySchema =
-  leadFormSchema.extend({
-    message: z
-      .string()
-      .trim()
-      .min(10, {
-        error:
-          "Message must contain at least 10 characters.",
-      })
-      .max(1000, {
-        error:
-          "Message must not exceed 1000 characters.",
+  leadFormSchema
+    .omit({
+      interestedCourse: true,
+    })
+    .extend({
+      interestedCourseId: z.uuid({
+        error: "Select a valid course.",
       }),
-  });
 
-export type LeadFormData = z.infer<
-  typeof leadFormSchema
->;
+      message: z
+        .string()
+        .trim()
+        .min(10, {
+          error:
+            "Message must contain at least 10 characters.",
+        })
+        .max(1000, {
+          error:
+            "Message must not exceed 1000 characters.",
+        }),
+    });
 
-export type PublicInquiryFormData = z.infer<
-  typeof publicInquirySchema
->;
+export type LeadFormData = z.infer<typeof leadFormSchema>;
+export type PublicInquiryFormData = z.infer<typeof publicInquirySchema>;

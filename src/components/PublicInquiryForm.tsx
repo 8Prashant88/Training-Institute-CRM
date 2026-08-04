@@ -1,46 +1,81 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
-import type { Value } from "react-phone-number-input";
+import {
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { CheckCircle2 } from "lucide-react";
+import type { Value } from "react-phone-number-input";
 import * as z from "zod";
 
 import { submitPublicInquiry } from "@/actions/submit-public-inquiry";
-import Button from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
-import Field from "@/components/ui/Field";
-import { Input, Textarea } from "@/components/ui/Input";
 import InternationalPhoneField from "@/components/InternationalPhoneField";
+import Button from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/Card";
+import Field from "@/components/ui/Field";
+import {
+  Input,
+  Select,
+  Textarea,
+} from "@/components/ui/Input";
 import {
   publicInquirySchema,
   type PublicInquiryFormData,
 } from "@/schemas/lead-schema";
 
+type PublicCourseOption = {
+  id: string;
+  title: string;
+};
+
+type PublicInquiryFormProps = {
+  courses: PublicCourseOption[];
+};
+
 type PublicInquiryFieldErrors = Partial<
   Record<keyof PublicInquiryFormData, string>
 >;
 
-export default function PublicInquiryForm() {
+export default function PublicInquiryForm({
+  courses,
+}: PublicInquiryFormProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState<Value | undefined>();
-  const [interestedCourse, setInterestedCourse] = useState("");
+  const [phone, setPhone] =
+    useState<Value | undefined>();
+  const [
+    interestedCourseId,
+    setInterestedCourseId,
+  ] = useState("");
   const [message, setMessage] = useState("");
 
-  const [fieldErrors, setFieldErrors] = useState<PublicInquiryFieldErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] =
+    useState<PublicInquiryFieldErrors>({});
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+  const [isSubmitted, setIsSubmitted] =
+    useState(false);
   const [formError, setFormError] = useState("");
 
   const submissionLockRef = useRef(false);
 
-  function clearFieldError(field: keyof PublicInquiryFormData) {
+  function clearFieldError(
+    field: keyof PublicInquiryFormData,
+  ) {
     setFieldErrors((currentErrors) => {
       if (!currentErrors[field]) {
         return currentErrors;
       }
 
-      const nextErrors = { ...currentErrors };
+      const nextErrors = {
+        ...currentErrors,
+      };
+
       delete nextErrors[field];
 
       return nextErrors;
@@ -53,12 +88,15 @@ export default function PublicInquiryForm() {
     setFullName("");
     setEmail("");
     setPhone(undefined);
-    setInterestedCourse("");
+    setInterestedCourseId("");
     setMessage("");
     setFieldErrors({});
+    setFormError("");
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     if (submissionLockRef.current) {
@@ -67,27 +105,41 @@ export default function PublicInquiryForm() {
 
     setFormError("");
 
-    const clientResult = publicInquirySchema.safeParse({
-      fullName,
-      email,
-      phone: phone ?? "",
-      interestedCourse,
-      message,
-    });
-
-    if (!clientResult.success) {
-      const flattenedErrors = z.flattenError(clientResult.error);
-
-      setFieldErrors({
-        fullName: flattenedErrors.fieldErrors.fullName?.[0],
-        email: flattenedErrors.fieldErrors.email?.[0],
-        phone: flattenedErrors.fieldErrors.phone?.[0],
-        interestedCourse:
-          flattenedErrors.fieldErrors.interestedCourse?.[0],
-        message: flattenedErrors.fieldErrors.message?.[0],
+    const clientResult =
+      publicInquirySchema.safeParse({
+        fullName,
+        email,
+        phone: phone ?? "",
+        interestedCourseId,
+        message,
       });
 
-      setFormError("Please correct the highlighted fields.");
+    if (!clientResult.success) {
+      const flattenedErrors = z.flattenError(
+        clientResult.error,
+      );
+
+      setFieldErrors({
+        fullName:
+          flattenedErrors.fieldErrors.fullName?.[0],
+
+        email:
+          flattenedErrors.fieldErrors.email?.[0],
+
+        phone:
+          flattenedErrors.fieldErrors.phone?.[0],
+
+        interestedCourseId:
+          flattenedErrors.fieldErrors
+            .interestedCourseId?.[0],
+
+        message:
+          flattenedErrors.fieldErrors.message?.[0],
+      });
+
+      setFormError(
+        "Please correct the highlighted fields.",
+      );
 
       return;
     }
@@ -97,7 +149,10 @@ export default function PublicInquiryForm() {
     setIsSubmitting(true);
 
     try {
-      const serverResult = await submitPublicInquiry(clientResult.data);
+      const serverResult =
+        await submitPublicInquiry(
+          clientResult.data,
+        );
 
       if (!serverResult.success) {
         setFieldErrors(serverResult.fieldErrors);
@@ -109,8 +164,14 @@ export default function PublicInquiryForm() {
       resetForm();
       setIsSubmitted(true);
     } catch (error) {
-      console.error("Public inquiry submission failed:", error);
-      setFormError("An unexpected error occurred. Please try again.");
+      console.error(
+        "Public inquiry submission failed:",
+        error,
+      );
+
+      setFormError(
+        "An unexpected error occurred. Please try again.",
+      );
     } finally {
       submissionLockRef.current = false;
       setIsSubmitting(false);
@@ -132,11 +193,14 @@ export default function PublicInquiryForm() {
         </h2>
 
         <p className="max-w-sm text-sm leading-6 text-slate-600">
-          Your inquiry has been received. Our team will contact you soon
-          with course details.
+          Your inquiry has been received. Our team
+          will contact you soon with course details.
         </p>
 
-        <Button variant="outline" onClick={() => setIsSubmitted(false)}>
+        <Button
+          variant="outline"
+          onClick={() => setIsSubmitted(false)}
+        >
           Submit another inquiry
         </Button>
       </Card>
@@ -146,7 +210,11 @@ export default function PublicInquiryForm() {
   return (
     <Card>
       <CardContent>
-        <form noValidate aria-busy={isSubmitting} onSubmit={handleSubmit}>
+        <form
+          noValidate
+          aria-busy={isSubmitting}
+          onSubmit={handleSubmit}
+        >
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-accent-600">
               Course inquiry
@@ -157,8 +225,8 @@ export default function PublicInquiryForm() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Submit your details and our team will contact you with
-              course information.
+              Submit your details and our team will
+              contact you with course information.
             </p>
           </div>
 
@@ -175,7 +243,9 @@ export default function PublicInquiryForm() {
                 autoComplete="name"
                 disabled={isSubmitting}
                 value={fullName}
-                invalid={Boolean(fieldErrors.fullName)}
+                invalid={Boolean(
+                  fieldErrors.fullName,
+                )}
                 onChange={(event) => {
                   setFullName(event.target.value);
                   clearFieldError("fullName");
@@ -197,7 +267,9 @@ export default function PublicInquiryForm() {
                 autoComplete="email"
                 disabled={isSubmitting}
                 value={email}
-                invalid={Boolean(fieldErrors.email)}
+                invalid={Boolean(
+                  fieldErrors.email,
+                )}
                 onChange={(event) => {
                   setEmail(event.target.value);
                   clearFieldError("email");
@@ -222,28 +294,56 @@ export default function PublicInquiryForm() {
                   setPhone(value);
                   clearFieldError("phone");
                 }}
-                invalid={Boolean(fieldErrors.phone)}
+                invalid={Boolean(
+                  fieldErrors.phone,
+                )}
               />
             </Field>
 
             <Field
-              id="public-interestedCourse"
+              id="public-interestedCourseId"
               label="Interested course"
               required
-              error={fieldErrors.interestedCourse}
+              error={
+                fieldErrors.interestedCourseId
+              }
             >
-              <Input
-                id="public-interestedCourse"
-                name="interestedCourse"
-                disabled={isSubmitting}
-                value={interestedCourse}
-                invalid={Boolean(fieldErrors.interestedCourse)}
+              <Select
+                id="public-interestedCourseId"
+                name="interestedCourseId"
+                disabled={
+                  isSubmitting ||
+                  courses.length === 0
+                }
+                value={interestedCourseId}
+                invalid={Boolean(
+                  fieldErrors.interestedCourseId,
+                )}
                 onChange={(event) => {
-                  setInterestedCourse(event.target.value);
-                  clearFieldError("interestedCourse");
+                  setInterestedCourseId(
+                    event.target.value,
+                  );
+
+                  clearFieldError(
+                    "interestedCourseId",
+                  );
                 }}
-                placeholder="AI Engineering"
-              />
+              >
+                <option value="">
+                  {courses.length === 0
+                    ? "No courses currently available"
+                    : "Select a course"}
+                </option>
+
+                {courses.map((course) => (
+                  <option
+                    key={course.id}
+                    value={course.id}
+                  >
+                    {course.title}
+                  </option>
+                ))}
+              </Select>
             </Field>
 
             <Field
@@ -265,7 +365,9 @@ export default function PublicInquiryForm() {
                 maxLength={1000}
                 disabled={isSubmitting}
                 value={message}
-                invalid={Boolean(fieldErrors.message)}
+                invalid={Boolean(
+                  fieldErrors.message,
+                )}
                 onChange={(event) => {
                   setMessage(event.target.value);
                   clearFieldError("message");
@@ -286,8 +388,15 @@ export default function PublicInquiryForm() {
           )}
 
           <div className="mt-6 flex justify-end">
-            <Button type="submit" size="lg" isLoading={isSubmitting}>
-              {isSubmitting ? "Submitting inquiry..." : "Submit inquiry"}
+            <Button
+              type="submit"
+              size="lg"
+              isLoading={isSubmitting}
+              disabled={courses.length === 0}
+            >
+              {isSubmitting
+                ? "Submitting inquiry..."
+                : "Submit inquiry"}
             </Button>
           </div>
         </form>

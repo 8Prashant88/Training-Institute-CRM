@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import { BookOpen, Layers, Users } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 import Badge from "@/components/ui/Badge";
 import { Card, CardEyebrow } from "@/components/ui/Card";
 import StatCard from "@/components/ui/StatCard";
-import { courses } from "@/data/courses";
-import { leads } from "@/data/leads";
-import { formatCurrency } from "@/lib/format";
+import { listActiveCourses } from "@/services/course-service";
 
 export const metadata: Metadata = {
   title: "Courses",
 };
 
-export default function CoursesPage() {
-  const activeCourses = courses.filter((course) => course.active).length;
-  const totalEnrolled = leads.filter(
-    (lead) => lead.status === "ENROLLED",
-  ).length;
+export default async function CoursesPage() {
+  const courses = await listActiveCourses();
 
   return (
     <div className="grid gap-6">
@@ -28,73 +23,68 @@ export default function CoursesPage() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-          View the training programs offered by the institute and how leads
-          are converting into enrollments.
+          View active training programs stored in the CRM database.
         </p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total courses" value={courses.length} icon={BookOpen} />
-        <StatCard label="Active courses" value={activeCourses} icon={Layers} />
-        <StatCard label="Total enrolled" value={totalEnrolled} icon={Users} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label="Active courses"
+          value={courses.length}
+          icon={BookOpen}
+          description="Loaded from PostgreSQL"
+        />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {courses.map((course) => {
-          const courseLeads = leads.filter(
-            (lead) => lead.interestedCourse === course.name,
-          );
-          const enrolled = courseLeads.filter(
-            (lead) => lead.status === "ENROLLED",
-          ).length;
+      {courses.length === 0 ? (
+        <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <h2 className="text-lg font-semibold text-primary-900">
+            No active courses
+          </h2>
 
-          return (
-            <Card key={course.id} className="flex flex-col p-5 sm:p-6">
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Add or activate a course in the database to display it here.
+          </p>
+        </section>
+      ) : (
+        <section
+          aria-label="Active courses"
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {courses.map((course) => (
+            <Card
+              key={course.id}
+              className="flex flex-col p-5 sm:p-6"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                    {course.category}
+                    Training program
                   </p>
-                  <h2 className="mt-1 truncate text-lg font-semibold text-primary-900">
-                    {course.name}
+
+                  <h2 className="mt-1 text-lg font-semibold text-primary-900">
+                    {course.title}
                   </h2>
                 </div>
 
-                <Badge tone={course.active ? "green" : "slate"}>
-                  {course.active ? "Active" : "Inactive"}
-                </Badge>
+                <Badge tone="green">Active</Badge>
               </div>
 
-              <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
+              <dl className="mt-5 text-sm">
                 <div>
-                  <dt className="text-xs text-slate-400">Duration</dt>
-                  <dd className="mt-0.5 font-medium text-slate-700">
+                  <dt className="text-xs text-slate-400">
+                    Duration
+                  </dt>
+
+                  <dd className="mt-1 font-medium text-slate-700">
                     {course.duration}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-400">Fee</dt>
-                  <dd className="mt-0.5 font-medium text-slate-700">
-                    {formatCurrency(course.fee)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-400">Interested leads</dt>
-                  <dd className="mt-0.5 font-medium text-slate-700">
-                    {courseLeads.length}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-400">Enrolled</dt>
-                  <dd className="mt-0.5 font-medium text-slate-700">
-                    {enrolled}
                   </dd>
                 </div>
               </dl>
             </Card>
-          );
-        })}
-      </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

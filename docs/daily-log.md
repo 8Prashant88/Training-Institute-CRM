@@ -334,3 +334,66 @@
 - Creating database tables does not automatically connect existing forms to the database.
 - The current public inquiry and dashboard lead forms still require Prisma create operations before their submissions become permanent.
 - React state is temporary, while PostgreSQL records survive refreshes and can be shared across users.
+
+
+## Day 10 — Prisma Queries, Services, and Database-Backed Workflows
+
+### What I completed
+
+- Created a server-only Prisma Client singleton for application database access.
+- Used the PostgreSQL driver adapter with Prisma Client.
+- Created service functions for courses, leads, batches, dashboard data, and users.
+- Used Prisma `findMany`, `findUnique`, `findFirst`, `create`, `update`, `select`, `include`, relation counts, filtering, and ordering.
+- Connected the Courses page to active course records from PostgreSQL.
+- Connected the Leads page to real lead records from PostgreSQL.
+- Connected the Batches page to real batch and enrollment data.
+- Connected dashboard statistics, recent leads, pipeline data, follow-up counts, enrollment counts, and course performance to the database.
+- Created a database-backed lead-detail query with interested course, assigned counselor, notes, and note authors.
+- Added a lead notes section to the lead-detail page.
+- Added the inquiry message field to the Lead model and applied a Prisma migration.
+- Replaced the public inquiry course text field with a dropdown containing active database courses.
+- Updated the public inquiry form to submit the selected course ID instead of a course name.
+- Updated the public inquiry Server Action to create a real Lead record.
+- Stored public inquiries with `NEW` status, `WEBSITE` source, and no assigned counselor.
+- Stored the submitted public inquiry message in PostgreSQL.
+- Added a service for loading active counselors.
+- Replaced mock course and counselor values in the internal Add Lead form with database-backed dropdowns.
+- Updated manual lead creation to store real course and counselor IDs.
+- Removed browser-generated lead IDs and used the Lead record returned by PostgreSQL.
+- Added course and counselor options to the Edit Lead form.
+- Added an `Unassigned` option for leads that do not yet have a counselor.
+- Updated the Edit Lead Server Action to save contact details, course changes, and counselor assignments to PostgreSQL.
+- Verified that public inquiries and manually created leads remained available after browser refresh.
+- Revalidated the homepage, dashboard, leads, lead-detail, and course pages after database mutations.
+- Added safe validation and error responses without exposing raw Prisma or PostgreSQL errors.
+- Ran TypeScript, ESLint, and production build checks.
+
+### What I learned
+
+- Prisma Client provides type-safe functions for reading and changing PostgreSQL records.
+- `findMany()` retrieves multiple matching records.
+- `findUnique()` retrieves one record using a unique field such as an ID.
+- `findFirst()` retrieves the first record that matches a set of filters.
+- `create()` inserts a new database record.
+- `update()` changes an existing database record and can return the updated values.
+- `select` returns only the fields required by the application.
+- `include` loads related records together with the main record.
+- Relation counts can calculate values such as enrollments without loading every related record.
+- `orderBy` makes database results predictable before they reach the interface.
+- Service functions keep Prisma queries separate from page and component code.
+- Database modules should remain server-only so Prisma Client and credentials do not enter the browser bundle.
+- Server Components can load database data and pass serializable values to Client Components.
+- Client Components should receive plain objects, arrays, strings, numbers, and booleans rather than database clients.
+- Server Actions are useful for secure form mutations because submitted values can be validated again on the server.
+- Client-side validation improves feedback, while server-side validation protects the database.
+- A display name such as a course title or counselor name should not be used as a relational database key.
+- Dropdowns can display readable names while submitting real UUID values.
+- A nullable foreign key allows a public inquiry to exist before a counselor is assigned.
+- An empty counselor selection can be converted into `null` before updating PostgreSQL.
+- Public inquiry submission creates a Lead associated with an existing Course; it does not create a new Course.
+- `Promise.all()` can load independent database datasets at the same time.
+- `revalidatePath()` refreshes cached route data after a successful mutation.
+- Returning the database-created record prevents the UI from inventing IDs or assuming that a write succeeded.
+- React state can provide immediate interface updates, but PostgreSQL is the permanent source of truth.
+- Database records remain available after refresh and can be shared across pages and users.
+- Raw database errors should be logged on the server and replaced with safe messages for users.

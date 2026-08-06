@@ -11,6 +11,15 @@ import type {
   LeadStatus,
 } from "@/types/lead";
 
+export type UpdatedLeadStatus = {
+  id: string;
+  status: LeadStatus;
+};
+export type ArchivedLead = {
+  id: string;
+  archivedAt: string;
+};
+
 const sourceLabels: Record<DatabaseLeadSource, LeadSource> = {
   WEBSITE: "Website",
   REFERRAL: "Referral",
@@ -107,6 +116,12 @@ export type CreateLeadInput = {
   source: DatabaseLeadSource;
   assignedCounselorId?: string | null;
   inquiryMessage?: string | null;
+};
+
+export type CreateLeadNoteInput = {
+  leadId: string;
+  authorId: string;
+  note: string;
 };
 
 export async function getLeadById(
@@ -249,5 +264,101 @@ export async function createLead(
       createdLead.assignedCounselor?.fullName ??
       "Unassigned",
     createdAt: createdLead.createdAt.toISOString(),
+  };
+}
+
+export async function updateLeadStatus(
+  id: string,
+  status: DatabaseLeadStatus,
+): Promise<UpdatedLeadStatus> {
+  const updatedLead = await prisma.lead.update({
+    where: {
+      id,
+      archivedAt: null,
+    },
+
+    data: {
+      status,
+    },
+
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+
+  return {
+    id: updatedLead.id,
+    status: statusLabels[updatedLead.status],
+  };
+}
+
+export async function createLeadNote(
+  input: CreateLeadNoteInput,
+): Promise<LeadNoteDetails> {
+  const createdNote =
+    await prisma.leadNote.create({
+      data: {
+        leadId: input.leadId,
+        authorId: input.authorId,
+        note: input.note.trim(),
+      },
+
+      select: {
+        id: true,
+        note: true,
+        createdAt: true,
+
+        author: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+  return {
+    id: createdNote.id,
+    note: createdNote.note,
+    createdAt:
+      createdNote.createdAt.toISOString(),
+    author: createdNote.author,
+  };
+}
+
+export async function archiveLead(
+  id: string,
+): Promise<ArchivedLead> {
+  const archivedAt = new Date();
+
+  const archivedLead =
+    await prisma.lead.update({
+      where: {
+        id,
+        archivedAt: null,
+      },
+
+      data: {
+        archivedAt,
+      },
+
+      select: {
+        id: true,
+        archivedAt: true,
+      },
+    });
+
+  if (!archivedLead.archivedAt) {
+    throw new Error(
+      "Lead archive timestamp was not saved.",
+    );
+  }
+
+  return {
+    id: archivedLead.id,
+    archivedAt:
+      archivedLead.archivedAt.toISOString(),
   };
 }

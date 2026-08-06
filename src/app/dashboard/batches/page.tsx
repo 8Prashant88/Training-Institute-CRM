@@ -1,21 +1,14 @@
 import type { Metadata } from "next";
-import {
-  CalendarDays,
-  GraduationCap,
-  Users,
-} from "lucide-react";
+import { CalendarDays, GraduationCap, Users } from "lucide-react";
 
-import Badge, {
-  type BadgeTone,
-} from "@/components/ui/Badge";
-import {
-  Card,
-  CardEyebrow,
-} from "@/components/ui/Card";
+import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import { Card, CardEyebrow } from "@/components/ui/Card";
 import StatCard from "@/components/ui/StatCard";
 import type { BatchStatus } from "@/generated/prisma/client";
 import { formatDate } from "@/lib/format";
 import { listBatches } from "@/services/batch-service";
+import CreateBatchForm from "@/components/batches/CreateBatchForm";
+import { listActiveCourses } from "@/services/course-service";
 
 export const metadata: Metadata = {
   title: "Batches",
@@ -47,12 +40,13 @@ const batchStatusDetails: Record<
 };
 
 export default async function BatchesPage() {
-  const batches = await listBatches();
+  const [batches, courses] = await Promise.all([
+    listBatches(),
+    listActiveCourses(),
+  ]);
 
   const activeBatches = batches.filter(
-    (batch) =>
-      batch.status === "UPCOMING" ||
-      batch.status === "ONGOING",
+    (batch) => batch.status === "UPCOMING" || batch.status === "ONGOING",
   );
 
   const totalEnrollments = batches.reduce(
@@ -72,9 +66,7 @@ export default async function BatchesPage() {
 
   const overallOccupancy =
     activeCapacity > 0
-      ? Math.round(
-          (activeEnrollments / activeCapacity) * 100,
-        )
+      ? Math.round((activeEnrollments / activeCapacity) * 100)
       : 0;
 
   return (
@@ -87,10 +79,11 @@ export default async function BatchesPage() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-          View batch dates, course information, capacity,
-          enrollment totals, and current status.
+          View batch dates, course information, capacity, enrollment totals, and
+          current status.
         </p>
       </section>
+      
 
       <section
         aria-label="Batch statistics"
@@ -117,6 +110,14 @@ export default async function BatchesPage() {
           description="Across active batches"
         />
       </section>
+      <CreateBatchForm
+        courses={courses.map((course) => ({
+          id: course.id,
+          title: course.title,
+          duration: course.duration,
+        }))}
+      />
+      
 
       {batches.length === 0 ? (
         <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
@@ -125,8 +126,7 @@ export default async function BatchesPage() {
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Create a batch in the database to display it
-            here.
+            Create a batch in the database to display it here.
           </p>
         </section>
       ) : (
@@ -135,32 +135,20 @@ export default async function BatchesPage() {
           className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
         >
           {batches.map((batch) => {
-            const statusDetails =
-              batchStatusDetails[batch.status];
+            const statusDetails = batchStatusDetails[batch.status];
 
             const occupancy =
               batch.capacity > 0
-                ? Math.round(
-                    (batch.enrolledCount /
-                      batch.capacity) *
-                      100,
-                  )
+                ? Math.round((batch.enrolledCount / batch.capacity) * 100)
                 : 0;
 
-            const occupancyBarWidth = Math.min(
-              occupancy,
-              100,
-            );
+            const occupancyBarWidth = Math.min(occupancy, 100);
 
             const isFull =
-              batch.capacity > 0 &&
-              batch.enrolledCount >= batch.capacity;
+              batch.capacity > 0 && batch.enrolledCount >= batch.capacity;
 
             return (
-              <Card
-                key={batch.id}
-                className="flex flex-col p-5 sm:p-6"
-              >
+              <Card key={batch.id} className="flex flex-col p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="truncate text-lg font-semibold text-primary-900">
@@ -172,9 +160,7 @@ export default async function BatchesPage() {
                     </p>
                   </div>
 
-                  <Badge tone={statusDetails.tone}>
-                    {statusDetails.label}
-                  </Badge>
+                  <Badge tone={statusDetails.tone}>{statusDetails.label}</Badge>
                 </div>
 
                 <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
@@ -201,9 +187,7 @@ export default async function BatchesPage() {
 
                 <div className="mt-5">
                   <div className="flex justify-between gap-3 text-sm">
-                    <span className="text-slate-500">
-                      Occupancy
-                    </span>
+                    <span className="text-slate-500">Occupancy</span>
 
                     <span className="font-medium tabular-nums text-slate-800">
                       {batch.enrolledCount}/{batch.capacity}
@@ -214,9 +198,7 @@ export default async function BatchesPage() {
                   <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
                       className={`h-full rounded-full ${
-                        isFull
-                          ? "bg-red-500"
-                          : "bg-primary-800"
+                        isFull ? "bg-red-500" : "bg-primary-800"
                       }`}
                       style={{
                         width: `${occupancyBarWidth}%`,
@@ -227,11 +209,14 @@ export default async function BatchesPage() {
                   <p className="mt-1.5 text-right text-xs text-slate-400">
                     {occupancy}% occupied
                   </p>
+                  
+       
                 </div>
               </Card>
             );
           })}
         </section>
+        
       )}
     </div>
   );

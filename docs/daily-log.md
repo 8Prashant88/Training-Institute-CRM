@@ -397,3 +397,69 @@
 - React state can provide immediate interface updates, but PostgreSQL is the permanent source of truth.
 - Database records remain available after refresh and can be shared across pages and users.
 - Raw database errors should be logged on the server and replaced with safe messages for users.
+
+## Day 11 — CRM Mutations, Soft Archiving, and Enrollment Transactions
+
+### What I completed
+
+- Added persistent lead-status updates using a validated Server Action.
+- Prevented the `ENROLLED` status from being selected manually.
+- Added optimistic status updates with rollback when a server request fails.
+- Added database-backed notes to the lead-detail page.
+- Validated note content, lead IDs, and note authors on the server.
+- Added duplicate-submission protection to lead-note creation.
+- Added soft archiving for leads using the `archivedAt` field.
+- Kept archived lead records, notes, and relationships in PostgreSQL.
+- Removed archived leads from active lead lists and detail routes.
+- Added an archive confirmation dialog and redirected users after a successful archive.
+- Added a service and Server Action for creating course batches.
+- Validated batch titles, capacities, courses, start dates, and end dates.
+- Added a database-backed batch creation form.
+- Loaded active courses into the batch form.
+- Refreshed batch statistics and batch cards after creation.
+- Added a service for loading upcoming and ongoing batches with remaining capacity.
+- Created a lead-to-enrollment workflow using a Prisma interactive transaction.
+- Created the enrollment record and updated the lead inside the same transaction.
+- Updated the lead status to `ENROLLED` after successful enrollment.
+- Updated the lead’s course to the course belonging to the finally selected batch.
+- Cleared the lead’s next follow-up date after successful enrollment.
+- Allowed leads to enroll in a course different from their original course interest.
+- Prevented duplicate enrollment using application checks and the database unique constraint.
+- Prevented enrollment into missing, completed, cancelled, or full batches.
+- Used serializable transaction isolation for enrollment-capacity protection.
+- Added retry handling for Prisma transaction conflicts.
+- Added an enrollment form to the lead-detail page.
+- Displayed batch course, dates, occupancy, status, and remaining seats.
+- Tested successful enrollment with a batch from another course.
+- Forced a temporary transaction failure and verified that PostgreSQL rolled back the enrollment.
+- Tested duplicate enrollment, full batch, unavailable batch, and archived-lead failures.
+- Ran Prisma validation, TypeScript, ESLint, and production build checks.
+
+### What I learned
+
+- A mutation changes permanent application data and must be validated on the server.
+- Optimistic updates make interfaces feel faster but must restore previous state after failure.
+- Browser state is not the source of truth for database mutations.
+- Soft archiving preserves historical records while removing them from active workflows.
+- An `archivedAt` timestamp records both whether and when a record was archived.
+- Active-record queries must consistently filter archived records.
+- Server Actions provide a controlled boundary between Client Components and database services.
+- Form values such as numbers and dates arrive as strings and must be validated and transformed.
+- A browser date input does not remove the need for server-side date validation.
+- Business rules such as end date after start date belong on the server.
+- A transaction groups multiple database operations into one atomic operation.
+- Atomicity means all operations commit together or all operations roll back.
+- Creating an enrollment and updating the lead separately could produce inconsistent data.
+- Throwing an error inside a transaction causes all earlier transaction writes to be rolled back.
+- A lead’s original course interest is not necessarily the course they finally purchase.
+- The selected batch determines the final enrolled course.
+- A unique constraint provides stronger duplicate protection than interface checks alone.
+- Server-side capacity checks are necessary because the browser may display stale seat information.
+- Serializable isolation helps protect shared values such as the final available batch seat.
+- Concurrent serializable transactions can conflict and may need retry handling.
+- Prisma error code `P2034` can represent a transaction conflict or deadlock.
+- Prisma error code `P2002` can represent a unique-constraint failure.
+- Service-specific error classes make business failures easier to map into safe form messages.
+- Database errors should be logged on the server without exposing internal details to users.
+- `revalidatePath()` refreshes affected server-rendered data after successful mutations.
+- Failure testing is as important as testing the successful workflow.

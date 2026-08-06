@@ -463,3 +463,31 @@
 - Database errors should be logged on the server without exposing internal details to users.
 - `revalidatePath()` refreshes affected server-rendered data after successful mutations.
 - Failure testing is as important as testing the successful workflow.
+
+## Day 12 — Authentication
+
+### What I completed
+
+- Configured Supabase authentication for the Next.js application.
+- Created separate browser and server Supabase clients.
+- Implemented email and password login with validation.
+- Added a Supabase Auth user for CRM access.
+- Connected Supabase users to CRM profile records using `authUserId`.
+- Protected dashboard routes using server-side authentication checks.
+- Displayed the authenticated user's name, email, and role.
+- Implemented real logout that clears the Supabase session.
+- Added a Next.js Proxy to refresh authentication cookies.
+- Tested wrong passwords, missing sessions, protected URLs, inactive users, logout, and cross-tab logout.
+
+### What I learned
+
+- Authentication proves who the user is.
+- A session allows the user to remain authenticated across requests.
+- Supabase stores session information in cookies for server-side rendering.
+- Browser UI checks are not enough to protect private data.
+- Protected routes must validate authentication on the server.
+- Supabase Auth users and application profile records serve different purposes.
+- The Supabase user ID securely connects an authentication identity to a CRM profile.
+- Logout must destroy the session rather than only navigate to the login page.
+- Proxy refreshes authentication cookies, while the dashboard layout performs authorization checks.
+- Passwords, secret keys, and authentication tokens must never be logged or committed.

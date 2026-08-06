@@ -5,7 +5,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 import SidebarNav from "@/components/dashboard/SidebarNav";
+
 import Topbar from "@/components/dashboard/Topbar";
+
+type DashboardUser = {
+  fullName: string;
+  email: string;
+  role: "ADMIN" | "COUNSELOR";
+};
 
 function BrandMark() {
   return (
@@ -34,8 +41,10 @@ function BrandMark() {
 
 export default function DashboardShell({
   children,
+  currentUser,
 }: {
   children: ReactNode;
+  currentUser: DashboardUser;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -97,7 +106,10 @@ export default function DashboardShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
+        <Topbar
+          currentUser={currentUser}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+        />
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>

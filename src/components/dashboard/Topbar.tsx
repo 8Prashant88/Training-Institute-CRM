@@ -5,10 +5,17 @@ import { Bell, Menu, Search } from "lucide-react";
 import UserMenu from "@/components/dashboard/UserMenu";
 
 type TopbarProps = {
+  currentUser: DashboardUser;
   onOpenMobileNav: () => void;
 };
 
-export default function Topbar({ onOpenMobileNav }: TopbarProps) {
+type DashboardUser = {
+  fullName: string;
+  email: string;
+  role: "ADMIN" | "COUNSELOR";
+};
+
+export default function Topbar({ currentUser, onOpenMobileNav }: TopbarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6">
       <button
@@ -56,7 +63,7 @@ export default function Topbar({ onOpenMobileNav }: TopbarProps) {
         />
       </button>
 
-      <UserMenu />
+     <UserMenu currentUser={currentUser} />
     </header>
   );
 }

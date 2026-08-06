@@ -1,13 +1,34 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import {
+  getCurrentAuthenticatedUser,
+} from "@/services/user-service";
 
 type DashboardLayoutProps = {
   children: ReactNode;
 };
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
-  return <DashboardShell>{children}</DashboardShell>;
+  const currentUser =
+    await getCurrentAuthenticatedUser();
+
+  if (!currentUser) {
+    redirect("/login");
+  }
+
+  return (
+    <DashboardShell
+      currentUser={{
+        fullName: currentUser.fullName,
+        email: currentUser.email,
+        role: currentUser.role,
+      }}
+    >
+      {children}
+    </DashboardShell>
+  );
 }

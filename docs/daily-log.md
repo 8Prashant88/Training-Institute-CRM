@@ -491,3 +491,22 @@
 - Logout must destroy the session rather than only navigate to the login page.
 - Proxy refreshes authentication cookies, while the dashboard layout performs authorization checks.
 - Passwords, secret keys, and authentication tokens must never be logged or committed.
+
+## Day 13 — Authorization and Roles
+
+### What I completed
+
+- Added role-based authorization for ADMIN and COUNSELOR users.
+- Restricted counselors to viewing and updating only their assigned leads.
+- Allowed both roles to create leads, with counselor-created leads automatically assigned to themselves.
+- Protected lead notes, status updates, enrollment, reassignment, and archiving on the server.
+- Allowed counselors to view courses and batches while keeping management actions admin-only.
+- Added secure database-backed bulk lead status updates.
+
+### What I learned
+
+- Authentication identifies the user, while authorization controls what they can do.
+- Hiding buttons in the UI is not enough; permissions must be checked on the server.
+- Resource ownership is important when different users can access the same type of data.
+- User IDs, roles, and ownership information should come from trusted server-side data instead of the browser.
+- Database-level filtering and server-side permission checks help prevent unauthorized access.

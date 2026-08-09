@@ -67,7 +67,10 @@ export default function DashboardShell({
           <BrandMark />
         </div>
 
-        <SidebarNav className="flex-1 overflow-y-auto px-3 py-4" />
+        <SidebarNav
+          role={currentUser.role}
+          className="flex-1 overflow-y-auto px-3 py-4"
+        />
 
         <div className="border-t border-slate-100 p-4 text-xs text-slate-400">
           Training Institute CRM — Nepal region
@@ -98,6 +101,7 @@ export default function DashboardShell({
             </div>
 
             <SidebarNav
+              role={currentUser.role}
               onNavigate={() => setMobileNavOpen(false)}
               className="flex-1 overflow-y-auto px-3 py-4"
             />

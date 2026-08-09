@@ -12,13 +12,18 @@ import Button from "@/components/ui/Button";
 import Field from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { loginSchema } from "@/validations/login-schema";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 type LoginFieldErrors = {
   email?: string;
   password?: string;
 };
 
-export default function LoginForm() {
+type LoginFormProps = {
+  initialError?: string;
+};
+
+export default function LoginForm({ initialError }: LoginFormProps) {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -29,7 +34,7 @@ export default function LoginForm() {
     useState<LoginFieldErrors>({});
 
   const [generalError, setGeneralError] =
-    useState("");
+    useState(initialError ?? "");
 
   const [isSubmitting, setIsSubmitting] =
     useState(false);
@@ -99,10 +104,21 @@ export default function LoginForm() {
   }
 
   return (
+    <div className="mt-6 grid gap-5">
+      <GoogleSignInButton disabled={isSubmitting} />
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-slate-200" />
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Or sign in with email
+        </span>
+        <div className="h-px flex-1 bg-slate-200" />
+      </div>
+
     <form
       onSubmit={handleSubmit}
       noValidate
-      className="mt-6 grid gap-4"
+      className="grid gap-4"
     >
       {generalError && (
         <div
@@ -184,5 +200,6 @@ export default function LoginForm() {
           : "Sign in"}
       </Button>
     </form>
+    </div>
   );
 }

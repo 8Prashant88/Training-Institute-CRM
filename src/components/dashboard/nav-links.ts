@@ -1,10 +1,17 @@
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, CalendarDays, LayoutDashboard, Users } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  LayoutDashboard,
+  UserCog,
+  Users,
+} from "lucide-react";
 
 export type NavLink = {
   href: string;
   label: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
 };
 
 export const navigationLinks: NavLink[] = [
@@ -27,5 +34,11 @@ export const navigationLinks: NavLink[] = [
     href: "/dashboard/batches",
     label: "Batches",
     icon: CalendarDays,
+  },
+  {
+    href: "/dashboard/people",
+    label: "People",
+    icon: UserCog,
+    adminOnly: true,
   },
 ];

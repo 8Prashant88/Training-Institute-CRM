@@ -9,7 +9,22 @@ export const metadata: Metadata = {
     "Sign in to the Training Institute CRM.",
 };
 
-export default function LoginPage() {
+const oauthErrorMessages: Record<string, string> = {
+  missing_code: "The Google sign-in link was invalid. Please try again.",
+  oauth_failed: "Google sign-in failed. Please try again.",
+  not_authorized:
+    "This Google account is not authorized to access the CRM. Ask an administrator to add you first.",
+  link_failed: "Unable to complete Google sign-in right now. Please try again.",
+};
+
+type LoginPageProps = {
+  searchParams: Promise<{ error?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = await searchParams;
+  const oauthError = error ? oauthErrorMessages[error] : undefined;
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-[var(--shadow-panel)]">
@@ -41,7 +56,7 @@ export default function LoginPage() {
           batches, and enrollment management.
         </p>
 
-        <LoginForm />
+        <LoginForm initialError={oauthError} />
 
         <Link
           href="/"

@@ -9,20 +9,26 @@ import { navigationLinks } from "@/components/dashboard/nav-links";
 type SidebarNavProps = {
   onNavigate?: () => void;
   className?: string;
+  role?: "ADMIN" | "COUNSELOR";
 };
 
 export default function SidebarNav({
   onNavigate,
   className,
+  role,
 }: SidebarNavProps) {
   const pathname = usePathname();
+
+  const visibleLinks = navigationLinks.filter(
+    (link) => !link.adminOnly || role === "ADMIN",
+  );
 
   return (
     <nav
       aria-label="Dashboard navigation"
       className={cn("grid gap-1", className)}
     >
-      {navigationLinks.map((link) => {
+      {visibleLinks.map((link) => {
         const isActive =
           link.href === "/dashboard"
             ? pathname === link.href

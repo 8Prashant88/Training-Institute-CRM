@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
-import {
-  archiveLead,
-  type ArchivedLead,
-} from "@/services/lead-service";
+import { archiveLead, type ArchivedLead } from "@/services/lead-service";
+import { requireAdmin, AuthorizationError } from "@/lib/authorization";
+
+import { getCurrentAuthenticatedUser } from "@/services/user-service";
 
 const archiveLeadSchema = z.object({
   leadId: z.uuid({
@@ -14,13 +14,9 @@ const archiveLeadSchema = z.object({
   }),
 });
 
-export type ArchiveLeadInput = z.infer<
-  typeof archiveLeadSchema
->;
+export type ArchiveLeadInput = z.infer<typeof archiveLeadSchema>;
 
-type ArchiveLeadFieldErrors = Partial<
-  Record<keyof ArchiveLeadInput, string>
->;
+type ArchiveLeadFieldErrors = Partial<Record<keyof ArchiveLeadInput, string>>;
 
 export type ArchiveLeadResult =
   | {
@@ -36,9 +32,7 @@ export type ArchiveLeadResult =
       fieldErrors: ArchiveLeadFieldErrors;
     };
 
-function isRecordNotFoundError(
-  error: unknown,
-): boolean {
+function isRecordNotFoundError(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
@@ -57,53 +51,67 @@ export async function submitArchiveLead(
 
     return {
       success: false,
-      message:
-        "The submitted archive request is invalid.",
+      message: "The submitted archive request is invalid.",
       fieldErrors: {
-        leadId:
-          errors.fieldErrors.leadId?.[0],
+        leadId: errors.fieldErrors.leadId?.[0],
       },
     };
   }
 
   try {
-    const archivedLead = await archiveLead(
-      result.data.leadId,
-    );
+    const currentUser = await getCurrentAuthenticatedUser();
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/leads");
-    revalidatePath(
-      `/dashboard/leads/${archivedLead.id}`,
-    );
-
-    return {
-      success: true,
-      message:
-        "Lead archived successfully.",
-      data: archivedLead,
-      fieldErrors: {},
-    };
-  } catch (error) {
-    if (isRecordNotFoundError(error)) {
+    if (!currentUser) {
       return {
         success: false,
-        message:
-          "The lead was not found or has already been archived.",
+        message: "You must be signed in to archive a lead.",
         fieldErrors: {},
       };
     }
 
-    console.error(
-      "submitArchiveLead failed",
-      error,
-    );
+    requireAdmin(currentUser);
 
+    const archivedLead = await archiveLead(result.data.leadId);
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/leads");
+    revalidatePath(`/dashboard/leads/${archivedLead.id}`);
+
+    return {
+      success: true,
+      message: "Lead archived successfully.",
+      data: archivedLead,
+      fieldErrors: {},
+    };
+ } catch (error) {
+  if (error instanceof AuthorizationError) {
     return {
       success: false,
       message:
-        "The server could not archive the lead. Please try again.",
+        "Only administrators can archive leads.",
       fieldErrors: {},
     };
   }
+
+  if (isRecordNotFoundError(error)) {
+    return {
+      success: false,
+      message:
+        "The lead was not found or has already been archived.",
+      fieldErrors: {},
+    };
+  }
+
+  console.error(
+    "submitArchiveLead failed",
+    error,
+  );
+
+  return {
+    success: false,
+    message:
+      "The server could not archive the lead. Please try again.",
+    fieldErrors: {},
+  };
+ }
 }

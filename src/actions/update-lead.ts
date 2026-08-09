@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
-import {
-  CourseStatus,
-  UserRole,
-} from "@/generated/prisma/client";
+import { CourseStatus, UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { leadFormSchema } from "@/schemas/lead-schema";
+import { canAccessLead, isAdmin } from "@/lib/authorization";
+
+import { getCurrentAuthenticatedUser } from "@/services/user-service";
 
 const updateLeadSchema = leadFormSchema
   .omit({
@@ -27,13 +27,9 @@ const updateLeadSchema = leadFormSchema
     ]),
   });
 
-export type UpdateLeadInput = z.infer<
-  typeof updateLeadSchema
->;
+export type UpdateLeadInput = z.infer<typeof updateLeadSchema>;
 
-type UpdateLeadFieldErrors = Partial<
-  Record<keyof UpdateLeadInput, string>
->;
+type UpdateLeadFieldErrors = Partial<Record<keyof UpdateLeadInput, string>>;
 
 export type UpdateLeadResult =
   | {
@@ -60,9 +56,7 @@ export async function updateLead(
   input: unknown,
 ): Promise<UpdateLeadResult> {
   try {
-    const leadIdResult = z
-      .uuid()
-      .safeParse(leadId);
+    const leadIdResult = z.uuid().safeParse(leadId);
 
     if (!leadIdResult.success) {
       return {
@@ -72,142 +66,180 @@ export async function updateLead(
       };
     }
 
-    const result =
-      updateLeadSchema.safeParse(input);
+    const result = updateLeadSchema.safeParse(input);
 
     if (!result.success) {
-      const errors = z.flattenError(
-        result.error,
-      );
+      const errors = z.flattenError(result.error);
 
       return {
         success: false,
-        message:
-          "The submitted information contains validation errors.",
+        message: "The submitted information contains validation errors.",
 
         fieldErrors: {
-          fullName:
-            errors.fieldErrors.fullName?.[0],
+          fullName: errors.fieldErrors.fullName?.[0],
 
-          email:
-            errors.fieldErrors.email?.[0],
+          email: errors.fieldErrors.email?.[0],
 
-          phone:
-            errors.fieldErrors.phone?.[0],
+          phone: errors.fieldErrors.phone?.[0],
 
-          interestedCourseId:
-            errors.fieldErrors
-              .interestedCourseId?.[0],
+          interestedCourseId: errors.fieldErrors.interestedCourseId?.[0],
 
+          assignedCounselorId: errors.fieldErrors.assignedCounselorId?.[0],
+        },
+      };
+    }
+    const currentUser = await getCurrentAuthenticatedUser();
+
+    if (!currentUser) {
+      return {
+        success: false,
+        message: "You must be signed in to update a lead.",
+        fieldErrors: {},
+      };
+    }
+
+    const existingLead = await prisma.lead.findFirst({
+      where: {
+        id: leadIdResult.data,
+        archivedAt: null,
+      },
+
+      select: {
+        id: true,
+        assignedCounselorId: true,
+      },
+    });
+
+    if (!existingLead) {
+      return {
+        success: false,
+        message: "The lead was not found or has been archived.",
+        fieldErrors: {},
+      };
+    }
+
+    const hasAccess = canAccessLead(
+      currentUser,
+      existingLead.assignedCounselorId,
+    );
+
+    if (!hasAccess) {
+      return {
+        success: false,
+        message: "You are not authorized to update this lead.",
+        fieldErrors: {},
+      };
+    }
+
+    const { fullName, email, phone, interestedCourseId, assignedCounselorId } =
+      result.data;
+    const existingAssignedCounselorId =
+      existingLead.assignedCounselorId ?? "";
+
+    if (
+      !isAdmin(currentUser) &&
+      assignedCounselorId !== existingAssignedCounselorId
+    ) {
+      return {
+        success: false,
+        message:
+          "Only administrators can change lead assignments.",
+
+        fieldErrors: {
           assignedCounselorId:
-            errors.fieldErrors
-              .assignedCounselorId?.[0],
+            "You cannot change the assigned counselor.",
         },
       };
     }
 
-    const {
-      fullName,
-      email,
-      phone,
-      interestedCourseId,
-      assignedCounselorId,
-    } = result.data;
+    const [course, counselor] = await Promise.all([
+      prisma.course.findFirst({
+        where: {
+          id: interestedCourseId,
+          status: CourseStatus.ACTIVE,
+        },
 
-    const [course, counselor] =
-      await Promise.all([
-        prisma.course.findFirst({
-          where: {
-            id: interestedCourseId,
-            status: CourseStatus.ACTIVE,
-          },
+        select: {
+          id: true,
+        },
+      }),
 
-          select: {
-            id: true,
-          },
-        }),
+      isAdmin(currentUser) &&
+assignedCounselorId
+  ? prisma.user.findFirst({
+            where: {
+              id: assignedCounselorId,
+              role: UserRole.COUNSELOR,
+              isActive: true,
+            },
 
-        assignedCounselorId
-          ? prisma.user.findFirst({
-              where: {
-                id: assignedCounselorId,
-                role: UserRole.COUNSELOR,
-                isActive: true,
-              },
-
-              select: {
-                id: true,
-              },
-            })
-          : Promise.resolve(null),
-      ]);
+            select: {
+              id: true,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
 
     if (!course) {
       return {
         success: false,
-        message:
-          "The selected course is no longer available.",
+        message: "The selected course is no longer available.",
 
         fieldErrors: {
-          interestedCourseId:
-            "Select an active course.",
+          interestedCourseId: "Select an active course.",
         },
       };
     }
 
     if (
-      assignedCounselorId &&
-      !counselor
-    ) {
+  isAdmin(currentUser) &&
+  assignedCounselorId &&
+  !counselor
+){
       return {
         success: false,
-        message:
-          "The selected counselor is no longer available.",
+        message: "The selected counselor is no longer available.",
 
         fieldErrors: {
-          assignedCounselorId:
-            "Select an active counselor.",
+          assignedCounselorId: "Select an active counselor.",
         },
       };
     }
 
-    const updatedLead =
-      await prisma.lead.update({
-        where: {
-          id: leadIdResult.data,
-          archivedAt: null,
-        },
+    const updatedLead = await prisma.lead.update({
+      where: {
+        id: leadIdResult.data,
+        archivedAt: null,
+      },
 
-        data: {
-          fullName: fullName.trim(),
+      data: {
+        fullName: fullName.trim(),
 
-          email: email
-            .trim()
-            .toLowerCase(),
+        email: email.trim().toLowerCase(),
 
-          phone: phone.trim(),
+        phone: phone.trim(),
 
-          interestedCourseId,
+        interestedCourseId,
 
-          assignedCounselorId:
-            assignedCounselorId || null,
-        },
+        assignedCounselorId:
+  isAdmin(currentUser)
+    ? assignedCounselorId || null
+    : existingLead.assignedCounselorId,
+      },
 
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          phone: true,
-          interestedCourseId: true,
-          assignedCounselorId: true,
-        },
-      });
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        interestedCourseId: true,
+        assignedCounselorId: true,
+      },
+    });
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/leads");
-    revalidatePath(
-      `/dashboard/leads/${updatedLead.id}`,
-    );
+    revalidatePath(`/dashboard/leads/${updatedLead.id}`);
     revalidatePath("/dashboard/courses");
 
     return {
@@ -219,12 +251,9 @@ export async function updateLead(
         email: updatedLead.email ?? "",
         phone: updatedLead.phone,
 
-        interestedCourseId:
-          updatedLead.interestedCourseId,
+        interestedCourseId: updatedLead.interestedCourseId,
 
-        assignedCounselorId:
-          updatedLead.assignedCounselorId ??
-          "",
+        assignedCounselorId: updatedLead.assignedCounselorId ?? "",
       },
 
       fieldErrors: {},
@@ -234,8 +263,7 @@ export async function updateLead(
 
     return {
       success: false,
-      message:
-        "The server could not update this lead. Please try again.",
+      message: "The server could not update this lead. Please try again.",
       fieldErrors: {},
     };
   }

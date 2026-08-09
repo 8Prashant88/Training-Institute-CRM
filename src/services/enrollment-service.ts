@@ -5,11 +5,14 @@ import {
   EnrollmentStatus,
   LeadStatus,
   Prisma,
+  UserRole,
 } from "@/generated/prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
 export type EnrollmentErrorCode =
   | "LEAD_NOT_FOUND"
+  | "FORBIDDEN"
   | "ALREADY_ENROLLED"
   | "BATCH_NOT_FOUND"
   | "BATCH_UNAVAILABLE"
@@ -32,6 +35,11 @@ export class EnrollmentServiceError extends Error {
 export type EnrollLeadInput = {
   leadId: string;
   batchId: string;
+
+  actor: {
+    id: string;
+    role: UserRole;
+  };
 };
 
 export type EnrollmentDetails = {
@@ -60,6 +68,7 @@ export async function enrollLead(
             id: true,
             status: true,
             interestedCourseId: true,
+            assignedCounselorId: true,
 
             enrollment: {
               select: {
@@ -73,6 +82,18 @@ export async function enrollLead(
         throw new EnrollmentServiceError(
           "LEAD_NOT_FOUND",
           "The lead was not found or has been archived.",
+        );
+      }
+
+      const canEnrollLead =
+        input.actor.role === UserRole.ADMIN ||
+        lead.assignedCounselorId ===
+          input.actor.id;
+
+      if (!canEnrollLead) {
+        throw new EnrollmentServiceError(
+          "FORBIDDEN",
+          "You are not authorized to enroll this lead.",
         );
       }
 
@@ -162,29 +183,32 @@ export async function enrollLead(
           },
         });
 
-    await transaction.lead.update({
-  where: {
-    id: lead.id,
-  },
+      await transaction.lead.update({
+        where: {
+          id: lead.id,
+        },
 
-  data: {
-    status: LeadStatus.ENROLLED,
+        data: {
+          status: LeadStatus.ENROLLED,
 
-    // Store the course the lead finally selected.
-    interestedCourseId: batch.courseId,
+          interestedCourseId:
+            batch.courseId,
 
-    nextFollowUpAt: null,
-  },
-});
+          nextFollowUpAt: null,
+        },
+      });
 
       return {
         id: enrollment.id,
         leadId: enrollment.leadId,
         batchId: enrollment.batchId,
         batchTitle: batch.title,
-        courseTitle: batch.course.title,
+        courseTitle:
+          batch.course.title,
+
         enrolledAt:
           enrollment.enrolledAt.toISOString(),
+
         status: enrollment.status,
       };
     },

@@ -7,9 +7,18 @@ import {
   LeadStatus as DatabaseLeadStatus,
 } from "@/generated/prisma/client";
 import {
+  getLeadById,  
   updateLeadStatus,
   type UpdatedLeadStatus,
 } from "@/services/lead-service";
+import {
+  canAccessLead,
+} from "@/lib/authorization";
+
+
+import {
+  getCurrentAuthenticatedUser,
+} from "@/services/user-service";
 
 const manuallyEditableLeadStatusValues = [
   "NEW",
@@ -94,12 +103,51 @@ export async function changeLeadStatus(
   }
 
   try {
-    const updatedLead =
-      await updateLeadStatus(
-        result.data.leadId,
-        result.data
-          .status as DatabaseLeadStatus,
-      );
+  const currentUser =
+    await getCurrentAuthenticatedUser();
+
+  if (!currentUser) {
+    return {
+      success: false,
+      message:
+        "You must be signed in to update a lead.",
+      fieldErrors: {},
+    };
+  }
+
+  const lead = await getLeadById(
+    result.data.leadId,
+  );
+
+  if (!lead) {
+    return {
+      success: false,
+      message:
+        "The lead was not found or has already been archived.",
+      fieldErrors: {},
+    };
+  }
+
+  const hasAccess = canAccessLead(
+    currentUser,
+    lead.assignedCounselor?.id ?? null,
+  );
+
+  if (!hasAccess) {
+    return {
+      success: false,
+      message:
+        "You are not authorized to update this lead.",
+      fieldErrors: {},
+    };
+  }
+
+  const updatedLead =
+    await updateLeadStatus(
+      result.data.leadId,
+      result.data
+        .status as DatabaseLeadStatus,
+    );
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/leads");

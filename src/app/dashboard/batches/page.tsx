@@ -9,6 +9,13 @@ import { formatDate } from "@/lib/format";
 import { listBatches } from "@/services/batch-service";
 import CreateBatchForm from "@/components/batches/CreateBatchForm";
 import { listActiveCourses } from "@/services/course-service";
+import {
+  isAdmin,
+} from "@/lib/authorization";
+
+import {
+  getCurrentAuthenticatedUser,
+} from "@/services/user-service";
 
 export const metadata: Metadata = {
   title: "Batches",
@@ -40,6 +47,14 @@ const batchStatusDetails: Record<
 };
 
 export default async function BatchesPage() {
+  const currentUser =
+  await getCurrentAuthenticatedUser();
+
+const canManageBatches =
+  currentUser
+    ? isAdmin(currentUser)
+    : false;
+
   const [batches, courses] = await Promise.all([
     listBatches(),
     listActiveCourses(),
@@ -110,13 +125,17 @@ export default async function BatchesPage() {
           description="Across active batches"
         />
       </section>
-      <CreateBatchForm
-        courses={courses.map((course) => ({
-          id: course.id,
-          title: course.title,
-          duration: course.duration,
-        }))}
-      />
+      {canManageBatches && (
+  <CreateBatchForm
+    courses={courses.map(
+      (course) => ({
+        id: course.id,
+        title: course.title,
+        duration: course.duration,
+      }),
+    )}
+  />
+)}
       
 
       {batches.length === 0 ? (

@@ -3,39 +3,46 @@
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
-import { UserRole } from "@/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+import {
+  canAccessLead,
+} from "@/lib/authorization";
+
 import {
   createLeadNote,
+  getLeadById,
   type LeadNoteDetails,
 } from "@/services/lead-service";
+
+import {
+  getCurrentAuthenticatedUser,
+} from "@/services/user-service";
 
 const createLeadNoteSchema = z.object({
   leadId: z.uuid({
     error: "The lead ID is invalid.",
   }),
 
-  authorId: z.uuid({
-    error: "Select a valid note author.",
-  }),
-
   note: z
     .string()
     .trim()
     .min(3, {
-      error: "The note must contain at least 3 characters.",
+      error:
+        "The note must contain at least 3 characters.",
     })
     .max(2000, {
-      error: "The note cannot exceed 2,000 characters.",
+      error:
+        "The note cannot exceed 2,000 characters.",
     }),
 });
 
-export type CreateLeadNoteActionInput = z.infer<
-  typeof createLeadNoteSchema
->;
+export type CreateLeadNoteActionInput =
+  z.infer<typeof createLeadNoteSchema>;
 
 type CreateLeadNoteFieldErrors = Partial<
-  Record<keyof CreateLeadNoteActionInput, string>
+  Record<
+    keyof CreateLeadNoteActionInput,
+    string
+  >
 >;
 
 export type CreateLeadNoteActionResult =
@@ -43,7 +50,10 @@ export type CreateLeadNoteActionResult =
       success: true;
       message: string;
       data: LeadNoteDetails;
-      fieldErrors: Record<string, never>;
+      fieldErrors: Record<
+        string,
+        never
+      >;
     }
   | {
       success: false;
@@ -55,69 +65,77 @@ export type CreateLeadNoteActionResult =
 export async function submitLeadNote(
   input: unknown,
 ): Promise<CreateLeadNoteActionResult> {
-  const result = createLeadNoteSchema.safeParse(input);
+  const result =
+    createLeadNoteSchema.safeParse(input);
 
   if (!result.success) {
-    const errors = z.flattenError(result.error);
+    const errors = z.flattenError(
+      result.error,
+    );
 
     return {
       success: false,
-      message: "The submitted note contains validation errors.",
+      message:
+        "The submitted note contains validation errors.",
+
       fieldErrors: {
-        leadId: errors.fieldErrors.leadId?.[0],
-        authorId: errors.fieldErrors.authorId?.[0],
-        note: errors.fieldErrors.note?.[0],
+        leadId:
+          errors.fieldErrors.leadId?.[0],
+
+        note:
+          errors.fieldErrors.note?.[0],
       },
     };
   }
 
   try {
-    const [lead, author] = await Promise.all([
-      prisma.lead.findFirst({
-        where: {
-          id: result.data.leadId,
-          archivedAt: null,
-        },
-        select: {
-          id: true,
-        },
-      }),
+    const currentUser =
+      await getCurrentAuthenticatedUser();
 
-      prisma.user.findFirst({
-        where: {
-          id: result.data.authorId,
-          role: UserRole.COUNSELOR,
-          isActive: true,
-        },
-        select: {
-          id: true,
-        },
-      }),
-    ]);
+    if (!currentUser) {
+      return {
+        success: false,
+        message:
+          "You must be signed in to add a note.",
+        fieldErrors: {},
+      };
+    }
+
+    const lead = await getLeadById(
+      result.data.leadId,
+    );
 
     if (!lead) {
       return {
         success: false,
-        message: "The lead was not found or has been archived.",
-        fieldErrors: {
-          leadId: "Select an active lead.",
-        },
+        message:
+          "The lead was not found or has been archived.",
+        fieldErrors: {},
       };
     }
 
-    if (!author) {
+    const hasAccess = canAccessLead(
+      currentUser,
+      lead.assignedCounselor?.id ??
+        null,
+    );
+
+    if (!hasAccess) {
       return {
         success: false,
-        message: "The selected counselor is not available.",
-        fieldErrors: {
-          authorId: "Select an active counselor.",
-        },
+        message:
+          "You are not authorized to add notes to this lead.",
+        fieldErrors: {},
       };
     }
 
     const note = await createLeadNote({
       leadId: result.data.leadId,
-      authorId: result.data.authorId,
+
+      // IMPORTANT:
+      // Never trust authorId from browser.
+      authorId: currentUser.id,
+
       note: result.data.note,
     });
 
@@ -127,12 +145,16 @@ export async function submitLeadNote(
 
     return {
       success: true,
-      message: "Lead note added successfully.",
+      message:
+        "Lead note added successfully.",
       data: note,
       fieldErrors: {},
     };
   } catch (error) {
-    console.error("submitLeadNote failed", error);
+    console.error(
+      "submitLeadNote failed",
+      error,
+    );
 
     return {
       success: false,

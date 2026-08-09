@@ -3,6 +3,7 @@ import "server-only";
 import {
   LeadSource as DatabaseLeadSource,
   LeadStatus as DatabaseLeadStatus,
+  UserRole
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
@@ -10,6 +11,9 @@ import type {
   LeadSource,
   LeadStatus,
 } from "@/types/lead";
+import type {
+  AuthenticatedCrmUser,
+} from "@/services/user-service";
 
 export type UpdatedLeadStatus = {
   id: string;
@@ -38,51 +42,78 @@ const statusLabels: Record<DatabaseLeadStatus, LeadStatus> = {
   LOST: "LOST",
 };
 
-export async function listLeads(): Promise<Lead[]> {
-  const databaseLeads = await prisma.lead.findMany({
-    where: {
-      archivedAt: null,
-    },
+export async function listLeads(
+  currentUser: Pick<
+    AuthenticatedCrmUser,
+    "id" | "role"
+  >,
+): Promise<Lead[]> {
+  const databaseLeads =
+    await prisma.lead.findMany({
+      where: {
+        archivedAt: null,
 
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      phone: true,
-      source: true,
-      status: true,
-      createdAt: true,
+        ...(currentUser.role ===
+        UserRole.ADMIN
+          ? {}
+          : {
+              assignedCounselorId:
+                currentUser.id,
+            }),
+      },
 
-      interestedCourse: {
-        select: {
-          title: true,
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        source: true,
+        status: true,
+        createdAt: true,
+
+        interestedCourse: {
+          select: {
+            title: true,
+          },
+        },
+
+        assignedCounselor: {
+          select: {
+            fullName: true,
+          },
         },
       },
 
-      assignedCounselor: {
-        select: {
-          fullName: true,
-        },
+      orderBy: {
+        createdAt: "desc",
       },
-    },
+    });
 
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  return databaseLeads.map(
+    (lead) => ({
+      id: lead.id,
+      fullName: lead.fullName,
+      email: lead.email ?? "",
+      phone: lead.phone,
 
-  return databaseLeads.map((lead) => ({
-    id: lead.id,
-    fullName: lead.fullName,
-    email: lead.email ?? "",
-    phone: lead.phone,
-    interestedCourse: lead.interestedCourse.title,
-    status: statusLabels[lead.status],
-    source: sourceLabels[lead.source],
-    assignedTo:
-      lead.assignedCounselor?.fullName ?? "Unassigned",
-    createdAt: lead.createdAt.toISOString(),
-  }));
+      interestedCourse:
+        lead.interestedCourse.title,
+
+      status:
+        statusLabels[lead.status],
+
+      source:
+        sourceLabels[lead.source],
+
+      assignedTo:
+        lead.assignedCounselor
+          ?.fullName ??
+        "Unassigned",
+
+      createdAt:
+        lead.createdAt.toISOString(),
+    }),
+  );
 }
 export type LeadNoteDetails = {
   id: string;

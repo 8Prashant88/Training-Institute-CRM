@@ -7,9 +7,19 @@ import {
   CourseStatus,
   UserRole,
 } from "@/generated/prisma/client";
+
+import {
+  isAdmin,
+} from "@/lib/authorization";
+
 import { prisma } from "@/lib/prisma";
 import { leadFormSchema } from "@/schemas/lead-schema";
 import { createLead } from "@/services/lead-service";
+
+import {
+  getCurrentAuthenticatedUser,
+} from "@/services/user-service";
+
 import type { Lead } from "@/types/lead";
 
 const leadSourceValues = [
@@ -32,130 +42,272 @@ const submitLeadSchema = leadFormSchema
       error: "Select a valid course.",
     }),
 
-    source: z.enum(leadSourceValues, {
-      error: "Select a valid lead source.",
-    }),
+    source: z.enum(
+      leadSourceValues,
+      {
+        error:
+          "Select a valid lead source.",
+      },
+    ),
 
-    assignedCounselorId: z.uuid({
-      error: "Select a valid counselor.",
-    }),
+    assignedCounselorId: z.union([
+      z.literal(""),
+
+      z.uuid({
+        error:
+          "Select a valid counselor.",
+      }),
+    ]),
   });
 
-export type SubmitLeadInput = z.infer<
-  typeof submitLeadSchema
->;
+export type SubmitLeadInput =
+  z.infer<typeof submitLeadSchema>;
 
-type SubmitLeadFieldErrors = Partial<
-  Record<keyof SubmitLeadInput, string>
->;
+type SubmitLeadFieldErrors =
+  Partial<
+    Record<
+      keyof SubmitLeadInput,
+      string
+    >
+  >;
 
 export type SubmitLeadResult =
   | {
       success: true;
       message: string;
       data: Lead;
-      fieldErrors: Record<string, never>;
+      fieldErrors: Record<
+        string,
+        never
+      >;
     }
   | {
       success: false;
       message: string;
       data?: undefined;
-      fieldErrors: SubmitLeadFieldErrors;
+      fieldErrors:
+        SubmitLeadFieldErrors;
     };
 
 export async function submitLead(
   input: unknown,
 ): Promise<SubmitLeadResult> {
   try {
-    const result = submitLeadSchema.safeParse(input);
+    const currentUser =
+      await getCurrentAuthenticatedUser();
+
+    if (!currentUser) {
+      return {
+        success: false,
+        message:
+          "You must be signed in to add a lead.",
+        fieldErrors: {},
+      };
+    }
+
+    const result =
+      submitLeadSchema.safeParse(
+        input,
+      );
 
     if (!result.success) {
-      const errors = z.flattenError(result.error);
+      const errors =
+        z.flattenError(
+          result.error,
+        );
 
       return {
         success: false,
+
         message:
           "The submitted information contains validation errors.",
+
         fieldErrors: {
-          fullName: errors.fieldErrors.fullName?.[0],
-          email: errors.fieldErrors.email?.[0],
-          phone: errors.fieldErrors.phone?.[0],
+          fullName:
+            errors.fieldErrors
+              .fullName?.[0],
+
+          email:
+            errors.fieldErrors
+              .email?.[0],
+
+          phone:
+            errors.fieldErrors
+              .phone?.[0],
+
           interestedCourseId:
-            errors.fieldErrors.interestedCourseId?.[0],
-          source: errors.fieldErrors.source?.[0],
+            errors.fieldErrors
+              .interestedCourseId?.[0],
+
+          source:
+            errors.fieldErrors
+              .source?.[0],
+
           assignedCounselorId:
-            errors.fieldErrors.assignedCounselorId?.[0],
+            errors.fieldErrors
+              .assignedCounselorId?.[0],
         },
       };
     }
 
-    const [course, counselor] = await Promise.all([
-      prisma.course.findFirst({
-        where: {
-          id: result.data.interestedCourseId,
-          status: CourseStatus.ACTIVE,
-        },
-        select: {
-          id: true,
-        },
-      }),
+    const adminUser =
+      isAdmin(currentUser);
 
-      prisma.user.findFirst({
-        where: {
-          id: result.data.assignedCounselorId,
-          role: UserRole.COUNSELOR,
-          isActive: true,
-        },
-        select: {
-          id: true,
-        },
-      }),
-    ]);
-
-    if (!course || !counselor) {
+    /*
+     * ADMIN:
+     * must explicitly choose a counselor.
+     *
+     * COUNSELOR:
+     * browser cannot choose assignment.
+     * Server assigns current user.
+     */
+    if (
+      adminUser &&
+      !result.data.assignedCounselorId
+    ) {
       return {
         success: false,
-        message:
-          "The selected course or counselor is no longer available.",
-        fieldErrors: {
-          interestedCourseId: !course
-            ? "Select an active course."
-            : undefined,
 
-          assignedCounselorId: !counselor
-            ? "Select an active counselor."
-            : undefined,
+        message:
+          "Select a counselor for this lead.",
+
+        fieldErrors: {
+          assignedCounselorId:
+            "Select a counselor.",
         },
       };
     }
 
-    const lead = await createLead({
-      fullName: result.data.fullName,
-      email: result.data.email,
-      phone: result.data.phone,
-      interestedCourseId:
-        result.data.interestedCourseId,
-      source: result.data.source,
-      assignedCounselorId:
-        result.data.assignedCounselorId,
-    });
+    const finalCounselorId =
+      adminUser
+        ? result.data
+            .assignedCounselorId
+        : currentUser.id;
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/leads");
+    const course =
+      await prisma.course.findFirst({
+        where: {
+          id:
+            result.data
+              .interestedCourseId,
+
+          status:
+            CourseStatus.ACTIVE,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    if (!course) {
+      return {
+        success: false,
+
+        message:
+          "The selected course is no longer available.",
+
+        fieldErrors: {
+          interestedCourseId:
+            "Select an active course.",
+        },
+      };
+    }
+
+    /*
+     * Admin-selected counselor must
+     * still be validated server-side.
+     *
+     * The authenticated counselor
+     * was already validated when the
+     * current CRM user was resolved.
+     */
+    if (adminUser) {
+      const counselor =
+        await prisma.user.findFirst({
+          where: {
+            id: finalCounselorId,
+
+            role:
+              UserRole.COUNSELOR,
+
+            isActive: true,
+          },
+
+          select: {
+            id: true,
+          },
+        });
+
+      if (!counselor) {
+        return {
+          success: false,
+
+          message:
+            "The selected counselor is no longer available.",
+
+          fieldErrors: {
+            assignedCounselorId:
+              "Select an active counselor.",
+          },
+        };
+      }
+    }
+
+    const lead =
+      await createLead({
+        fullName:
+          result.data.fullName,
+
+        email:
+          result.data.email,
+
+        phone:
+          result.data.phone,
+
+        interestedCourseId:
+          result.data
+            .interestedCourseId,
+
+        source:
+          result.data.source,
+
+        assignedCounselorId:
+          finalCounselorId,
+      });
+
+    revalidatePath(
+      "/dashboard",
+    );
+
+    revalidatePath(
+      "/dashboard/leads",
+    );
 
     return {
       success: true,
-      message: "Lead added successfully.",
+
+      message:
+        adminUser
+          ? "Lead added successfully."
+          : "Lead added and assigned to you successfully.",
+
       data: lead,
+
       fieldErrors: {},
     };
   } catch (error) {
-    console.error("submitLead failed", error);
+    console.error(
+      "submitLead failed",
+      error,
+    );
 
     return {
       success: false,
+
       message:
         "The server could not add this lead. Please try again.",
+
       fieldErrors: {},
     };
   }

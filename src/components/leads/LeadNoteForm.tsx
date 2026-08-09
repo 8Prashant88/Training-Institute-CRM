@@ -7,44 +7,47 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-import { submitLeadNote } from "@/actions/create-lead-note";
+import {
+  submitLeadNote,
+} from "@/actions/create-lead-note";
+
 import Button from "@/components/ui/Button";
 import {
-  Select,
   Textarea,
 } from "@/components/ui/Input";
-import { useToast } from "@/components/ui/Toast";
-import type { CounselorOption } from "@/types/lead-options";
+import {
+  useToast,
+} from "@/components/ui/Toast";
 
 type LeadNoteFormProps = {
   leadId: string;
-  counselors: CounselorOption[];
-  defaultAuthorId?: string;
 };
 
 type FieldErrors = {
-  authorId?: string;
   note?: string;
 };
 
 export default function LeadNoteForm({
   leadId,
-  counselors,
-  defaultAuthorId = "",
 }: LeadNoteFormProps) {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [authorId, setAuthorId] =
-    useState(defaultAuthorId);
+  const [note, setNote] =
+    useState("");
 
-  const [note, setNote] = useState("");
-  const [fieldErrors, setFieldErrors] =
-    useState<FieldErrors>({});
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
+  const [
+    fieldErrors,
+    setFieldErrors,
+  ] = useState<FieldErrors>({});
 
-  const submissionLockRef = useRef(false);
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false);
+
+  const submissionLockRef =
+    useRef(false);
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -60,23 +63,23 @@ export default function LeadNoteForm({
     setFieldErrors({});
 
     try {
-      const result = await submitLeadNote({
-        leadId,
-        authorId,
-        note,
-      });
+      const result =
+        await submitLeadNote({
+          leadId,
+          note,
+        });
 
       if (!result.success) {
         setFieldErrors({
-          authorId:
-            result.fieldErrors.authorId,
-          note: result.fieldErrors.note,
+          note:
+            result.fieldErrors.note,
         });
 
         toast({
           variant: "error",
           title: "Note not added",
-          description: result.message,
+          description:
+            result.message,
         });
 
         return;
@@ -88,7 +91,7 @@ export default function LeadNoteForm({
         variant: "success",
         title: "Note added",
         description:
-          "The counselor note was saved successfully.",
+          "Your note was saved successfully.",
       });
 
       router.refresh();
@@ -105,7 +108,9 @@ export default function LeadNoteForm({
           "An unexpected error occurred. Please try again.",
       });
     } finally {
-      submissionLockRef.current = false;
+      submissionLockRef.current =
+        false;
+
       setIsSubmitting(false);
     }
   }
@@ -121,72 +126,14 @@ export default function LeadNoteForm({
         </h3>
 
         <p className="mt-1 text-sm text-slate-500">
-          Record a counselor update for this
-          lead.
+          Record an update for this
+          lead. The note will
+          automatically be attributed
+          to you.
         </p>
       </div>
 
       <div className="mt-5 grid gap-4">
-        <div>
-          <label
-            htmlFor="note-author"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Note author
-          </label>
-
-          <Select
-            id="note-author"
-            value={authorId}
-            disabled={isSubmitting}
-            invalid={Boolean(
-              fieldErrors.authorId,
-            )}
-            aria-describedby={
-              fieldErrors.authorId
-                ? "note-author-error"
-                : undefined
-            }
-            onChange={(event) => {
-              setAuthorId(
-                event.target.value,
-              );
-
-              setFieldErrors(
-                (current) => ({
-                  ...current,
-                  authorId: undefined,
-                }),
-              );
-            }}
-          >
-            <option value="">
-              Select counselor
-            </option>
-
-            {counselors.map(
-              (counselor) => (
-                <option
-                  key={counselor.id}
-                  value={counselor.id}
-                >
-                  {counselor.fullName}
-                </option>
-              ),
-            )}
-          </Select>
-
-          {fieldErrors.authorId && (
-            <p
-              id="note-author-error"
-              role="alert"
-              className="mt-1.5 text-sm text-red-600"
-            >
-              {fieldErrors.authorId}
-            </p>
-          )}
-        </div>
-
         <div>
           <div className="mb-1.5 flex items-center justify-between gap-3">
             <label
@@ -217,7 +164,9 @@ export default function LeadNoteForm({
                 : "lead-note-help"
             }
             onChange={(event) => {
-              setNote(event.target.value);
+              setNote(
+                event.target.value,
+              );
 
               setFieldErrors(
                 (current) => ({
@@ -250,9 +199,6 @@ export default function LeadNoteForm({
           <Button
             type="submit"
             isLoading={isSubmitting}
-            disabled={
-              counselors.length === 0
-            }
           >
             {isSubmitting
               ? "Saving note..."

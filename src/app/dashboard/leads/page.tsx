@@ -1,9 +1,13 @@
 import type {
   Metadata,
 } from "next";
-import { redirect } from "next/navigation";
+
+import {
+  redirect,
+} from "next/navigation";
 
 import LeadsWorkspace from "@/components/leads/LeadsWorkspace";
+
 import {
   CardEyebrow,
 } from "@/components/ui/Card";
@@ -13,16 +17,25 @@ import {
 } from "@/lib/authorization";
 
 import {
+  createLeadListSearchParams,
+  parseLeadListQuery,
+  type LeadListQuery,
+  type RawLeadSearchParams,
+} from "@/lib/lead-list-query";
+
+import {
   listActiveCourses,
+  listCoursesForLeadFilters,
 } from "@/services/course-service";
 
 import {
-  listLeads,
-} from "@/services/lead-service";
+  listLeadPage,
+} from "@/services/lead-list-service";
 
 import {
   getCurrentAuthenticatedUser,
   listActiveCounselors,
+  listCounselorsForLeadFilters,
 } from "@/services/user-service";
 
 export const metadata: Metadata = {
@@ -30,15 +43,106 @@ export const metadata: Metadata = {
 };
 
 type LeadsPageProps = {
-  searchParams: Promise<{
-    q?: string;
-  }>;
+  searchParams:
+    Promise<RawLeadSearchParams>;
 };
+
+const LEAD_QUERY_KEYS = [
+  "q",
+  "status",
+  "source",
+  "counselor",
+  "course",
+  "sort",
+  "dir",
+  "page",
+] as const;
+
+function shouldCanonicalizeSearchParams(
+  raw: RawLeadSearchParams,
+  canonical: URLSearchParams,
+): boolean {
+  const allowedKeys =
+    new Set<string>(
+      LEAD_QUERY_KEYS,
+    );
+
+  /*
+   * Remove unknown parameters.
+   *
+   * Example:
+   * ?status=NEW&random=hacked
+   */
+  for (
+    const key of
+    Object.keys(raw)
+  ) {
+    if (
+      !allowedKeys.has(key)
+    ) {
+      return true;
+    }
+  }
+
+  for (
+    const key of
+    LEAD_QUERY_KEYS
+  ) {
+    const rawValue =
+      raw[key];
+
+    /*
+     * Example:
+     * ?status=NEW&status=LOST
+     *
+     * We accept the first value during
+     * parsing, then redirect to one
+     * canonical value.
+     */
+    if (
+      Array.isArray(
+        rawValue,
+      )
+    ) {
+      return true;
+    }
+
+    const canonicalValue =
+      canonical.get(key) ??
+      undefined;
+
+    if (
+      rawValue !==
+      canonicalValue
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function createLeadsUrl(
+  query: LeadListQuery,
+): string {
+  const params =
+    createLeadListSearchParams(
+      query,
+    );
+
+  const search =
+    params.toString();
+
+  return search
+    ? `/dashboard/leads?${search}`
+    : "/dashboard/leads";
+}
 
 export default async function LeadsPage({
   searchParams,
 }: LeadsPageProps) {
-  const { q } = await searchParams;
+  const rawSearchParams =
+    await searchParams;
 
   const currentUser =
     await getCurrentAuthenticatedUser();
@@ -50,25 +154,113 @@ export default async function LeadsPage({
   const canManageAssignments =
     isAdmin(currentUser);
 
-  const [
-    leads,
-    courses,
-    counselors,
-  ] = await Promise.all([
-    listLeads(currentUser),
+  const parsedQuery =
+    parseLeadListQuery(
+      rawSearchParams,
+    );
 
+  /*
+   * Counselor filtering only makes
+   * sense for administrators.
+   *
+   * A counselor manually adding:
+   *
+   * ?counselor=<uuid>
+   *
+   * cannot influence their result set.
+   */
+  const query:
+    LeadListQuery =
+    canManageAssignments
+      ? parsedQuery
+      : {
+          ...parsedQuery,
+          counselor: undefined,
+        };
+
+  const [
+    leadResult,
+    activeCourses,
+    courseFilterOptions,
+    activeCounselors,
+    counselorFilterOptions,
+  ] = await Promise.all([
+    listLeadPage(
+      currentUser,
+      query,
+    ),
+
+    /*
+     * Used when creating leads.
+     */
     listActiveCourses(),
 
+    /*
+     * Includes inactive courses so
+     * historical leads remain
+     * filterable.
+     */
+    listCoursesForLeadFilters(),
+
+    /*
+     * Only ADMIN receives counselor
+     * assignment/filter datasets.
+     */
     canManageAssignments
       ? listActiveCounselors()
       : Promise.resolve([]),
+
+    canManageAssignments
+      ? listCounselorsForLeadFilters()
+      : Promise.resolve([]),
   ]);
 
+  /*
+   * Example:
+   *
+   * ?page=999
+   *
+   * listLeadPage() safely clamps that
+   * to the last valid page.
+   *
+   * Redirect so the browser URL also
+   * reflects the real page.
+   */
+  const canonicalQuery:
+  LeadListQuery = {
+  ...query,
+
+  page:
+    leadResult
+      .pagination
+      .page,
+};
+
+const canonicalParams =
+  createLeadListSearchParams(
+    canonicalQuery,
+  );
+
+if (
+  shouldCanonicalizeSearchParams(
+    rawSearchParams,
+    canonicalParams,
+  )
+) {
+  redirect(
+    createLeadsUrl(
+      canonicalQuery,
+    ),
+  );
+}
+
   const courseOptions =
-    courses.map((course) => ({
-      id: course.id,
-      title: course.title,
-    }));
+    activeCourses.map(
+      (course) => ({
+        id: course.id,
+        title: course.title,
+      }),
+    );
 
   return (
     <div className="grid min-w-0 gap-6">
@@ -85,20 +277,46 @@ export default async function LeadsPage({
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
           {canManageAssignments
-            ? "Track inquiries end to end — search, filter by pipeline stage, assign counselors, and review lead information."
-            : "Track and manage the leads currently assigned to you."}
+            ? "Search, filter, assign, and manage inquiries across the CRM."
+            : "Search, filter, and manage the leads currently assigned to you."}
         </p>
       </section>
 
       <LeadsWorkspace
-  initialLeads={leads}
-  initialQuery={q ?? ""}
-  courses={courseOptions}
-  counselors={counselors}
-  canManageAssignments={
-    canManageAssignments
-  }
-/>
+        initialLeads={
+          leadResult.items
+        }
+
+        query={query}
+
+        statusCounts={
+          leadResult.statusCounts
+        }
+
+        pagination={
+          leadResult.pagination
+        }
+
+        courses={
+          courseOptions
+        }
+
+        courseFilterOptions={
+          courseFilterOptions
+        }
+
+        counselors={
+          activeCounselors
+        }
+
+        counselorFilterOptions={
+          counselorFilterOptions
+        }
+
+        canManageAssignments={
+          canManageAssignments
+        }
+      />
     </div>
   );
 }

@@ -51,5 +51,8 @@ export type Lead = {
   source: LeadSource;
   assignedTo: string;
   createdAt: string;
+
+  nextFollowUpAt?: string | null;
+
   lastContactedAt?: string;
 };

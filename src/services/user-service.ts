@@ -41,6 +41,39 @@ export async function listActiveCounselors(): Promise<
     },
   });
 }
+
+export type CounselorFilterOption = {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+};
+
+export async function listCounselorsForLeadFilters(): Promise<
+  CounselorFilterOption[]
+> {
+  return prisma.user.findMany({
+    where: {
+      role: UserRole.COUNSELOR,
+    },
+
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      isActive: true,
+    },
+
+    orderBy: [
+      {
+        isActive: "desc",
+      },
+      {
+        fullName: "asc",
+      },
+    ],
+  });
+}
 export async function findOrLinkAuthenticatedUser(
   authUserId: string,
   email: string,

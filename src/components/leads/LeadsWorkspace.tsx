@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 import {
   ChevronLeft,
@@ -14,737 +11,628 @@ import {
   Users,
 } from "lucide-react";
 
-import {
-  bulkChangeLeadStatus,
-} from "@/actions/bulk-update-lead-status";
+import { useRouter } from "next/navigation";
+
+import { bulkChangeLeadStatus } from "@/actions/bulk-update-lead-status";
 
 import InquiryForm from "@/components/InquiryForm";
 import LeadList from "@/components/LeadList";
 
 import LeadBulkActionsBar from "@/components/leads/LeadBulkActionsBar";
-
-import LeadFiltersBar, {
-  type StatusFilter,
-} from "@/components/leads/LeadFiltersBar";
-
+import LeadFiltersBar from "@/components/leads/LeadFiltersBar";
 import LeadTable from "@/components/leads/LeadTable";
-
-import {
-  sortLeads,
-  type SortDirection,
-  type SortKey,
-} from "@/components/leads/lead-sort";
 
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
 import StatCard from "@/components/ui/StatCard";
 
-import {
-  useToast,
-} from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/Toast";
 
 import type {
-  Lead,
-  LeadSource,
-  LeadStatus,
-} from "@/types/lead";
+  LeadListQuery,
+  LeadListSortBy,
+  LeadListSortDirection,
+  LeadListSource,
+} from "@/lib/lead-list-query";
 
-import type {
-  CounselorOption,
-  CourseOption,
-} from "@/types/lead-options";
+import type { Lead, LeadStatus } from "@/types/lead";
+
+import type { CounselorOption, CourseOption } from "@/types/lead-options";
+
+type CourseFilterOption = {
+  id: string;
+  title: string;
+
+  status: "ACTIVE" | "INACTIVE";
+};
+
+type CounselorFilterOption = {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+};
+
+type StatusCounts = Record<"ALL" | LeadStatus, number>;
+
+type Pagination = {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+
+  hasPreviousPage: boolean;
+
+  hasNextPage: boolean;
+};
 
 type LeadsWorkspaceProps = {
   initialLeads: Lead[];
 
-  initialQuery?: string;
+  query: LeadListQuery;
+
+  statusCounts: StatusCounts;
+
+  pagination: Pagination;
 
   courses: CourseOption[];
 
+  courseFilterOptions: CourseFilterOption[];
+
   counselors: CounselorOption[];
+
+  counselorFilterOptions: CounselorFilterOption[];
 
   canManageAssignments: boolean;
 };
 
-const PAGE_SIZE = 8;
+const MAX_SEARCH_LENGTH = 100;
+const SEARCH_DEBOUNCE_MS = 350;
+
+function normalizeSearch(value: string) {
+  return value.trim().slice(0, MAX_SEARCH_LENGTH);
+}
+
+function createLeadsHref(query: LeadListQuery) {
+  const params = new URLSearchParams();
+
+  if (query.search) {
+    params.set("q", query.search);
+  }
+
+  if (query.status) {
+    params.set("status", query.status);
+  }
+
+  if (query.source) {
+    params.set("source", query.source);
+  }
+
+  if (query.courseId) {
+    params.set("course", query.courseId);
+  }
+
+  if (query.counselor) {
+    params.set(
+      "counselor",
+
+      query.counselor === "UNASSIGNED" ? "unassigned" : query.counselor,
+    );
+  }
+
+  if (query.sortBy !== "createdAt") {
+    params.set("sort", query.sortBy);
+  }
+
+  if (query.sortDirection !== "desc") {
+    params.set("dir", query.sortDirection);
+  }
+
+  if (query.page > 1) {
+    params.set("page", String(query.page));
+  }
+
+  const search = params.toString();
+
+  return search ? `/dashboard/leads?${search}` : "/dashboard/leads";
+}
 
 export default function LeadsWorkspace({
   initialLeads,
-  initialQuery = "",
+  query,
+  statusCounts,
+  pagination,
   courses,
+  courseFilterOptions,
   counselors,
+  counselorFilterOptions,
   canManageAssignments,
 }: LeadsWorkspaceProps) {
+  const router = useRouter();
+
   const { toast } = useToast();
 
-  const [
-    leads,
-    setLeads,
-  ] = useState<Lead[]>(
-    initialLeads,
-  );
+  const [isNavigating, startNavigation] = useTransition();
 
-  const [
-    query,
-    setQuery,
-  ] = useState(
-    initialQuery,
-  );
+  const [searchValue, setSearchValue] = useState(query.search);
 
-  const [
-    statusFilter,
-    setStatusFilter,
-  ] =
-    useState<StatusFilter>(
-      "ALL",
-    );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const [
-    sourceFilter,
-    setSourceFilter,
-  ] =
-    useState<
-      "ALL" | LeadSource
-    >("ALL");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const [
-    sortKey,
-    setSortKey,
-  ] =
-    useState<SortKey>(
-      "createdAt",
-    );
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
-  const [
-    sortDirection,
-    setSortDirection,
-  ] =
-    useState<SortDirection>(
-      "desc",
-    );
-
-  const [
-    selectedIds,
-    setSelectedIds,
-  ] = useState<
-    Set<string>
-  >(new Set());
-
-  const [
-    page,
-    setPage,
-  ] = useState(1);
-
-  const [
-    isAddDialogOpen,
-    setIsAddDialogOpen,
-  ] = useState(false);
-
-  const [
-    isBulkUpdating,
-    setIsBulkUpdating,
-  ] = useState(false);
-
-  const filteredLeads =
-    useMemo(() => {
-      const normalizedQuery =
-        query
-          .trim()
-          .toLowerCase();
-
-      const matchesQuery = (
-        lead: Lead,
-      ) =>
-        normalizedQuery.length ===
-          0 ||
-        [
-          lead.fullName,
-          lead.email,
-          lead.phone,
-          lead.interestedCourse,
-          lead.assignedTo,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(
-            normalizedQuery,
-          );
-
-      const matchesStatus = (
-        lead: Lead,
-      ) =>
-        statusFilter ===
-          "ALL" ||
-        lead.status ===
-          statusFilter;
-
-      const matchesSource = (
-        lead: Lead,
-      ) =>
-        sourceFilter ===
-          "ALL" ||
-        lead.source ===
-          sourceFilter;
-
-      return leads.filter(
-        (lead) =>
-          matchesQuery(lead) &&
-          matchesStatus(lead) &&
-          matchesSource(lead),
-      );
-    }, [
-      leads,
-      query,
-      statusFilter,
-      sourceFilter,
-    ]);
-
-  const sortedLeads =
-    useMemo(
-      () =>
-        sortLeads(
-          filteredLeads,
-          sortKey,
-          sortDirection,
-        ),
-      [
-        filteredLeads,
-        sortKey,
-        sortDirection,
-      ],
-    );
-
-  const pageCount =
-    Math.max(
-      1,
-      Math.ceil(
-        sortedLeads.length /
-          PAGE_SIZE,
-      ),
-    );
-
-  const safePage =
-    Math.min(
-      page,
-      pageCount,
-    );
-
-  const paginatedLeads =
-    sortedLeads.slice(
-      (safePage - 1) *
-        PAGE_SIZE,
-
-      safePage * PAGE_SIZE,
-    );
-
-  const statusCounts =
-    useMemo(() => {
-      const counts: Record<
-        StatusFilter,
-        number
-      > = {
-        ALL: leads.length,
-        NEW: 0,
-        CONTACTED: 0,
-        INTERESTED: 0,
-        FOLLOW_UP: 0,
-        ENROLLED: 0,
-        LOST: 0,
-      };
-
-      for (const lead of leads) {
-        counts[
-          lead.status
-        ] += 1;
-      }
-
-      return counts;
-    }, [leads]);
-
-  const enrolledCount =
-    statusCounts.ENROLLED;
-
-  const followUpCount =
-    statusCounts.FOLLOW_UP;
-
-  function updateFilters(
-    update: () => void,
-  ) {
-    update();
-
-    setPage(1);
-
-    setSelectedIds(
-      new Set(),
-    );
+  /*
+   * Browser Back / Forward navigation
+   * changes the Server Component query.
+   * Keep the text field synchronized.
+   *
+   * Adjusted during render (not in an
+   * effect) to avoid a cascading render:
+   * https://react.dev/learn/you-might-not-need-an-effect
+   */
+  const [prevQuerySearch, setPrevQuerySearch] = useState(query.search);
+  if (query.search !== prevQuerySearch) {
+    setPrevQuerySearch(query.search);
+    setSearchValue(query.search);
   }
 
-  function handleSort(
-    key: SortKey,
-  ) {
-    if (key === sortKey) {
-      setSortDirection(
-        (current) =>
-          current === "asc"
-            ? "desc"
-            : "asc",
-      );
-
-      return;
-    }
-
-    setSortKey(key);
-
-    setSortDirection(
-      "asc",
-    );
+  /*
+   * Never keep selections from an old
+   * server result page. Adjusted during
+   * render for the same reason as above.
+   */
+  const selectionResetKey = [
+    query.search,
+    query.status,
+    query.source,
+    query.courseId,
+    query.counselor,
+    query.sortBy,
+    query.sortDirection,
+    query.page,
+  ].join("|");
+  const [prevSelectionResetKey, setPrevSelectionResetKey] =
+    useState(selectionResetKey);
+  if (selectionResetKey !== prevSelectionResetKey) {
+    setPrevSelectionResetKey(selectionResetKey);
+    setSelectedIds(new Set());
   }
 
-  function toggleSelectOne(
-    id: string,
-  ) {
-    if (isBulkUpdating) {
-      return;
-    }
+  const navigate = useCallback(
+    (
+      next: LeadListQuery,
 
-    setSelectedIds(
-      (current) => {
-        const next =
-          new Set(current);
+      mode: "push" | "replace" = "push",
+    ) => {
+      const href = createLeadsHref(next);
 
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
+      startNavigation(() => {
+        if (mode === "replace") {
+          router.replace(href, {
+            scroll: false,
+          });
+
+          return;
         }
 
-        return next;
+        router.push(href, {
+          scroll: false,
+        });
+      });
+    },
+    [router, startNavigation],
+  );
+
+  /*
+   * Any deliberate filter change resets
+   * pagination back to page 1.
+   *
+   * We include the current search text
+   * even when its debounce has not fired
+   * yet, preventing filters from dropping
+   * recently typed text.
+   */
+  const changeQuery = useCallback(
+    (changes: Partial<LeadListQuery>) => {
+      navigate({
+        ...query,
+
+        search: normalizeSearch(searchValue),
+
+        ...changes,
+
+        page: changes.page ?? 1,
+      });
+    },
+    [navigate, query, searchValue],
+  );
+
+  /*
+   * Debounced database search.
+   *
+   * replace() avoids one browser-history
+   * entry for every typed character.
+   */
+  useEffect(() => {
+    const normalized = normalizeSearch(searchValue);
+
+    if (normalized === query.search) {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => {
+        navigate(
+          {
+            ...query,
+
+            search: normalized,
+
+            page: 1,
+          },
+
+          "replace",
+        );
       },
+
+      SEARCH_DEBOUNCE_MS,
     );
+
+    return () => window.clearTimeout(timeout);
+  }, [navigate, query, searchValue]);
+
+  const controlsDisabled = isNavigating || isBulkUpdating;
+
+  const matchingLeadCount = pagination.totalCount;
+
+  /*
+   * Status counts intentionally ignore the
+   * currently selected status while keeping
+   * all other filters.
+   *
+   * This is the correct denominator for
+   * pipeline-level statistics.
+   */
+  const pipelineLeadCount = statusCounts.ALL;
+
+  const enrolledCount = statusCounts.ENROLLED;
+
+  const followUpCount = statusCounts.FOLLOW_UP;
+
+  const conversionRate =
+    pipelineLeadCount > 0
+      ? Math.round((enrolledCount / pipelineLeadCount) * 100)
+      : 0;
+
+  function toggleSelectOne(id: string) {
+    if (controlsDisabled) {
+      return;
+    }
+
+    setSelectedIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
+      return next;
+    });
   }
 
   function toggleSelectAllOnPage() {
-    if (isBulkUpdating) {
+    if (controlsDisabled) {
       return;
     }
 
-    setSelectedIds(
-      (current) => {
-        const pageIds =
-          paginatedLeads.map(
-            (lead) =>
-              lead.id,
-          );
+    setSelectedIds((current) => {
+      const pageIds = initialLeads.map((lead) => lead.id);
 
-        const allSelected =
-          pageIds.every(
-            (id) =>
-              current.has(id),
-          );
+      const allSelected =
+        pageIds.length > 0 && pageIds.every((id) => current.has(id));
 
-        const next =
-          new Set(current);
+      const next = new Set(current);
 
-        if (allSelected) {
-          pageIds.forEach(
-            (id) =>
-              next.delete(id),
-          );
-        } else {
-          pageIds.forEach(
-            (id) =>
-              next.add(id),
-          );
+      if (allSelected) {
+        for (const id of pageIds) {
+          next.delete(id);
         }
+      } else {
+        for (const id of pageIds) {
+          next.add(id);
+        }
+      }
 
-        return next;
-      },
-    );
+      return next;
+    });
   }
 
-  function handleCreateLead(
-    newLead: Lead,
-  ) {
-    setLeads(
-      (current) => [
-        newLead,
-        ...current,
-      ],
-    );
-
-    setPage(1);
-
-    setIsAddDialogOpen(
-      false,
-    );
-  }
-
-  async function handleBulkStatusChange(
-    status: LeadStatus,
-  ) {
-    if (
-      selectedIds.size ===
-        0 ||
-      isBulkUpdating
-    ) {
+  async function handleBulkStatusChange(status: LeadStatus) {
+    if (selectedIds.size === 0 || isBulkUpdating) {
       return;
     }
 
-    /*
-     * Capture the selected IDs
-     * before the async request.
-     */
-    const selectedLeadIds =
-      new Set(selectedIds);
-
-    const leadIds = [
-      ...selectedLeadIds,
-    ];
+    const leadIds = [...selectedIds];
 
     setIsBulkUpdating(true);
 
     try {
-      const result =
-        await bulkChangeLeadStatus(
-          {
-            leadIds,
-            status,
-          },
-        );
+      const result = await bulkChangeLeadStatus({
+        leadIds,
+        status,
+      });
 
       if (!result.success) {
         toast({
-          variant:
-            "error",
+          variant: "error",
 
-          title:
-            "Status not updated",
+          title: "Status not updated",
 
-          description:
-            result.message,
+          description: result.message,
         });
 
         return;
       }
 
-      /*
-       * PostgreSQL succeeded.
-       * Now update the local UI.
-       */
-      setLeads(
-        (current) =>
-          current.map(
-            (lead) =>
-              selectedLeadIds.has(
-                lead.id,
-              )
-                ? {
-                    ...lead,
-                    status,
-                  }
-                : lead,
-          ),
-      );
+      setSelectedIds(new Set());
 
       toast({
-        variant:
-          "success",
+        variant: "success",
 
-        title:
-          "Status updated",
+        title: "Status updated",
 
-        description: `${
-          result.data
-            .updatedCount
-        } lead${
-          result.data
-            .updatedCount === 1
-            ? ""
-            : "s"
+        description: `${result.data.updatedCount} lead${
+          result.data.updatedCount === 1 ? "" : "s"
         } moved successfully.`,
       });
 
-      setSelectedIds(
-        new Set(),
-      );
+      /*
+       * Database is the source of truth.
+       *
+       * Re-fetch the current page instead
+       * of manually mutating React data.
+       */
+      router.refresh();
     } catch (error) {
-      console.error(
-        "Bulk lead status update failed",
-        error,
-      );
+      console.error("Bulk lead status update failed", error);
 
       toast({
-        variant:
-          "error",
+        variant: "error",
 
-        title:
-          "Status not updated",
+        title: "Status not updated",
 
-        description:
-          "An unexpected error occurred. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
       });
     } finally {
-      setIsBulkUpdating(
-        false,
-      );
+      setIsBulkUpdating(false);
     }
   }
 
+  function handleLeadCreated() {
+    setIsAddDialogOpen(false);
+
+    setSelectedIds(new Set());
+
+    /*
+     * submitLead already persists and
+     * revalidates server data.
+     */
+    router.refresh();
+  }
+
+  function handleStatusChange(status?: LeadStatus) {
+    changeQuery({
+      status,
+    });
+  }
+
+  function handleSourceChange(source?: LeadListSource) {
+    changeQuery({
+      source,
+    });
+  }
+
+  function handleCourseChange(courseId?: string) {
+    changeQuery({
+      courseId,
+    });
+  }
+
+  function handleCounselorChange(counselor?: string) {
+    if (!canManageAssignments) {
+      return;
+    }
+
+    changeQuery({
+      counselor,
+    });
+  }
+
+  function handleSortChange(
+    sortBy: LeadListSortBy,
+
+    sortDirection: LeadListSortDirection,
+  ) {
+    changeQuery({
+      sortBy,
+      sortDirection,
+    });
+  }
+
+  function handleClearFilters() {
+    setSearchValue("");
+
+    navigate({
+      search: "",
+      status: undefined,
+      source: undefined,
+      courseId: undefined,
+      counselor: undefined,
+      sortBy: "createdAt",
+      sortDirection: "desc",
+      page: 1,
+    });
+  }
+
+  function changePage(page: number) {
+    navigate({
+      ...query,
+
+      search: normalizeSearch(searchValue),
+
+      page,
+    });
+  }
+
+  const firstResult =
+    pagination.totalCount === 0
+      ? 0
+      : (pagination.page - 1) * pagination.pageSize + 1;
+
+  const lastResult =
+    pagination.totalCount === 0
+      ? 0
+      : Math.min(
+          firstResult + initialLeads.length - 1,
+
+          pagination.totalCount,
+        );
+
   return (
     <div className="grid gap-6">
-      {/* Statistics */}
-
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total leads"
-          value={
-            leads.length
-          }
+          label="Matching leads"
+          value={matchingLeadCount}
           icon={Users}
         />
 
         <StatCard
           label="New leads"
-          value={
-            statusCounts.NEW
-          }
+          value={statusCounts.NEW}
           icon={UserPlus}
-          description="Awaiting first contact"
+          description="Within current filters"
         />
 
         <StatCard
-          label="Follow-ups due"
-          value={
-            followUpCount
-          }
+          label="Follow-ups"
+          value={followUpCount}
           icon={Clock}
-          description="Needs counselor action"
+          description="Within current filters"
         />
 
         <StatCard
           label="Enrolled"
-          value={
-            enrolledCount
-          }
-          icon={
-            GraduationCap
-          }
-          description={`${
-            leads.length > 0
-              ? Math.round(
-                  (enrolledCount /
-                    leads.length) *
-                    100,
-                )
-              : 0
-          }% conversion`}
+          value={enrolledCount}
+          icon={GraduationCap}
+          description={`${conversionRate}% conversion`}
         />
       </div>
-
-      {/* Filters */}
 
       <LeadFiltersBar
-        query={query}
-        onQueryChange={(
-          value,
-        ) =>
-          updateFilters(() =>
-            setQuery(value),
-          )
-        }
-        statusFilter={
-          statusFilter
-        }
-        onStatusChange={(
-          value,
-        ) =>
-          updateFilters(() =>
-            setStatusFilter(
-              value,
-            ),
-          )
-        }
-        statusCounts={
-          statusCounts
-        }
-        sourceFilter={
-          sourceFilter
-        }
-        onSourceChange={(
-          value,
-        ) =>
-          updateFilters(() =>
-            setSourceFilter(
-              value,
-            ),
-          )
-        }
-        onAddLead={() =>
-          setIsAddDialogOpen(
-            true,
-          )
-        }
+        search={searchValue}
+        status={query.status}
+        source={query.source}
+        courseId={query.courseId}
+        counselor={query.counselor}
+        sortBy={query.sortBy}
+        sortDirection={query.sortDirection}
+        statusCounts={statusCounts}
+        courses={courseFilterOptions}
+        counselors={counselorFilterOptions}
+        canManageAssignments={canManageAssignments}
+        disabled={controlsDisabled}
+        onSearchChange={setSearchValue}
+        onStatusChange={handleStatusChange}
+        onSourceChange={handleSourceChange}
+        onCourseChange={handleCourseChange}
+        onCounselorChange={handleCounselorChange}
+        onSortChange={handleSortChange}
+        onClearFilters={handleClearFilters}
+        onAddLead={() => setIsAddDialogOpen(true)}
       />
 
-      {/* Bulk actions */}
-
-      {selectedIds.size >
-        0 && (
+      {selectedIds.size > 0 && (
         <LeadBulkActionsBar
-          selectedCount={
-            selectedIds.size
-          }
-          isUpdating={
-            isBulkUpdating
-          }
-          onClearSelection={() =>
-            setSelectedIds(
-              new Set(),
-            )
-          }
-          onChangeStatus={
-            handleBulkStatusChange
-          }
+          selectedCount={selectedIds.size}
+          isUpdating={isBulkUpdating}
+          onClearSelection={() => setSelectedIds(new Set())}
+          onChangeStatus={handleBulkStatusChange}
         />
       )}
 
-      {/* Desktop table */}
-
-      <div className="hidden lg:block">
-        <LeadTable
-          leads={
-            paginatedLeads
-          }
-          selectedIds={
-            selectedIds
-          }
-          onToggleOne={
-            toggleSelectOne
-          }
-          onToggleAll={
-            toggleSelectAllOnPage
-          }
-          sortKey={sortKey}
-          sortDirection={
-            sortDirection
-          }
-          onSort={handleSort}
-        />
-      </div>
-
-      {/* Mobile list */}
-
-      <div className="lg:hidden">
-        <LeadList
-          leads={
-            paginatedLeads
-          }
-          selectedIds={
-            selectedIds
-          }
-          onToggleSelect={
-            toggleSelectOne
-          }
-        />
-      </div>
-
-      {/* Pagination */}
-
-      {sortedLeads.length >
-        0 && (
-        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-          <p className="text-sm text-slate-500">
-            Showing{" "}
-            <span className="font-medium text-slate-700">
-              {(safePage -
-                1) *
-                PAGE_SIZE +
-                1}
-              –
-              {Math.min(
-                safePage *
-                  PAGE_SIZE,
-                sortedLeads.length,
-              )}
-            </span>{" "}
-            of{" "}
-            <span className="font-medium text-slate-700">
-              {
-                sortedLeads.length
-              }
-            </span>{" "}
-            leads
-          </p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={
-                safePage <=
-                  1 ||
-                isBulkUpdating
-              }
-              onClick={() =>
-                setPage(
-                  (current) =>
-                    current -
-                    1,
-                )
-              }
-            >
-              <ChevronLeft
-                aria-hidden="true"
-                className="size-4"
-              />
-
-              Previous
-            </Button>
-
-            <span className="px-2 text-sm text-slate-500">
-              Page{" "}
-              {safePage} of{" "}
-              {pageCount}
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={
-                safePage >=
-                  pageCount ||
-                isBulkUpdating
-              }
-              onClick={() =>
-                setPage(
-                  (current) =>
-                    current +
-                    1,
-                )
-              }
-            >
-              Next
-
-              <ChevronRight
-                aria-hidden="true"
-                className="size-4"
-              />
-            </Button>
+      {initialLeads.length > 0 ? (
+        <>
+          <div className="hidden lg:block">
+            <LeadTable
+              leads={initialLeads}
+              selectedIds={selectedIds}
+              onToggleOne={toggleSelectOne}
+              onToggleAll={toggleSelectAllOnPage}
+              disabled={controlsDisabled}
+            />
           </div>
-        </div>
+
+          <div className="lg:hidden">
+            <LeadList
+              leads={initialLeads}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelectOne}
+            />
+          </div>
+        </>
+      ) : (
+        <LeadList leads={[]} />
       )}
 
-      {/* Add lead dialog */}
+      <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+        <p className="text-sm text-slate-500">
+          Showing{" "}
+          <span className="font-medium text-slate-700">
+            {firstResult}
+            {pagination.totalCount > 0 ? "–" : ""}
+            {pagination.totalCount > 0 ? lastResult : ""}
+          </span>{" "}
+          of{" "}
+          <span className="font-medium text-slate-700">
+            {pagination.totalCount}
+          </span>{" "}
+          leads
+        </p>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!pagination.hasPreviousPage || controlsDisabled}
+            onClick={() => changePage(pagination.page - 1)}
+          >
+            <ChevronLeft aria-hidden="true" className="size-4" />
+            Previous
+          </Button>
+
+          <span className="px-2 text-sm text-slate-500">
+            Page {pagination.page} of {pagination.totalPages}
+          </span>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!pagination.hasNextPage || controlsDisabled}
+            onClick={() => changePage(pagination.page + 1)}
+          >
+            Next
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </Button>
+        </div>
+      </div>
 
       <Dialog
-        open={
-          isAddDialogOpen
-        }
-        onClose={() =>
-          setIsAddDialogOpen(
-            false,
-          )
-        }
+        open={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
         titleId="add-lead-title"
         size="lg"
       >
@@ -765,23 +653,11 @@ export default function LeadsWorkspace({
 
         <div className="mt-6">
           <InquiryForm
-            courses={
-              courses
-            }
-            counselors={
-              counselors
-            }
-            canManageAssignments={
-              canManageAssignments
-            }
-            onCreateLead={
-              handleCreateLead
-            }
-            onCancel={() =>
-              setIsAddDialogOpen(
-                false,
-              )
-            }
+            courses={courses}
+            counselors={counselors}
+            canManageAssignments={canManageAssignments}
+            onCreateLead={handleLeadCreated}
+            onCancel={() => setIsAddDialogOpen(false)}
           />
         </div>
       </Dialog>

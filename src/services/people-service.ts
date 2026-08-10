@@ -1,7 +1,5 @@
 import "server-only";
 
-import { randomBytes } from "crypto";
-
 import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -84,10 +82,6 @@ function toPersonListItem(raw: RawPerson): PersonListItem {
   };
 }
 
-function generateTemporaryPassword(): string {
-  return `${randomBytes(12).toString("base64url")}Aa1!`;
-}
-
 async function assertNotLastActiveAdmin(userId: string): Promise<void> {
   const target = await prisma.user.findUnique({
     where: { id: userId },
@@ -128,7 +122,6 @@ export type CreatePersonInput = {
 
 export type CreatePersonOutput = {
   person: PersonListItem;
-  temporaryPassword: string;
 };
 
 export async function createPerson(
@@ -145,12 +138,10 @@ export async function createPerson(
     throw new PersonAlreadyExistsError();
   }
 
-  const temporaryPassword = generateTemporaryPassword();
   const admin = createAdminClient();
 
   const { data, error } = await admin.auth.admin.createUser({
     email: normalizedEmail,
-    password: temporaryPassword,
     email_confirm: true,
     user_metadata: {
       full_name: input.fullName,
@@ -176,7 +167,6 @@ export async function createPerson(
 
     return {
       person: toPersonListItem(created),
-      temporaryPassword,
     };
   } catch (dbError) {
     await admin.auth.admin.deleteUser(data.user.id).catch((cleanupError) => {

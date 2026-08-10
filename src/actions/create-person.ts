@@ -23,7 +23,6 @@ export type CreatePersonActionResult =
       success: true;
       message: string;
       data: PersonListItem;
-      temporaryPassword: string;
       fieldErrors: Record<string, never>;
     }
   | {
@@ -65,7 +64,7 @@ export async function submitCreatePerson(
 
     requireAdmin(currentUser);
 
-    const { person, temporaryPassword } = await createPerson(result.data);
+    const { person } = await createPerson(result.data);
 
     revalidatePath("/dashboard/people");
 
@@ -73,7 +72,6 @@ export async function submitCreatePerson(
       success: true,
       message: `${person.fullName} was added successfully.`,
       data: person,
-      temporaryPassword,
       fieldErrors: {},
     };
   } catch (error) {

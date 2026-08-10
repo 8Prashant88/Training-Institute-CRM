@@ -510,3 +510,25 @@
 - Resource ownership is important when different users can access the same type of data.
 - User IDs, roles, and ownership information should come from trusted server-side data instead of the browser.
 - Database-level filtering and server-side permission checks help prevent unauthorized access.
+
+## Day 14 — Search, Filters, and Pagination
+
+### What I completed
+
+- Moved lead search, filtering, sorting, and pagination from the browser to PostgreSQL.
+- Added URL-based filters for status, source, course, counselor, sorting, and page number.
+- Added database-backed pagination with total counts and status counts.
+- Added counselor and unassigned-lead filtering for administrators while preserving counselor ownership restrictions.
+- Kept inactive courses and counselors available for historical filtering while using active records for new leads.
+- Added safe parsing and cleanup of invalid URL query parameters.
+- Added debounced database search and refreshed server data after lead mutations.
+- Ran TypeScript and ESLint checks successfully.
+
+### What I learned
+
+- Large datasets should be searched, filtered, sorted, and paginated in the database instead of the browser.
+- URL query parameters make filters persistent across refreshes and navigation.
+- Query parameters are untrusted input and should be validated before database queries.
+- Authorization must remain enforced by the server even when filters come from the URL.
+- Database pagination requires total counts and stable ordering.
+- Creation forms and historical filters can require different datasets.

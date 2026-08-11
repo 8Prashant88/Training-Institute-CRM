@@ -29,7 +29,6 @@ export const leads: Lead[] = [
     source: "Referral",
     assignedTo: "Maya Rai",
     createdAt: "2026-06-24T05:40:00.000Z",
-    lastContactedAt: "2026-07-18T10:00:00.000Z",
   },
   {
     id: "lead-003",
@@ -41,7 +40,6 @@ export const leads: Lead[] = [
     source: "Event",
     assignedTo: "Bikash Karki",
     createdAt: "2026-06-19T11:05:00.000Z",
-    lastContactedAt: "2026-07-02T08:30:00.000Z",
   },
   {
     id: "lead-004",
@@ -53,7 +51,6 @@ export const leads: Lead[] = [
     source: "Social Media",
     assignedTo: "Suresh Lama",
     createdAt: "2026-07-21T06:15:00.000Z",
-    lastContactedAt: "2026-07-29T09:45:00.000Z",
   },
   {
     id: "lead-005",
@@ -65,7 +62,6 @@ export const leads: Lead[] = [
     source: "Walk-in",
     assignedTo: "Anjali Gurung",
     createdAt: "2026-07-28T04:50:00.000Z",
-    lastContactedAt: "2026-07-30T07:20:00.000Z",
   },
   {
     id: "lead-006",
@@ -77,7 +73,6 @@ export const leads: Lead[] = [
     source: "Website",
     assignedTo: "Maya Rai",
     createdAt: "2026-07-30T12:20:00.000Z",
-    lastContactedAt: "2026-08-01T05:10:00.000Z",
   },
   {
     id: "lead-007",
@@ -89,7 +84,6 @@ export const leads: Lead[] = [
     source: "Phone Inquiry",
     assignedTo: "Bikash Karki",
     createdAt: "2026-07-05T08:00:00.000Z",
-    lastContactedAt: "2026-07-12T09:00:00.000Z",
   },
   {
     id: "lead-008",
@@ -112,7 +106,6 @@ export const leads: Lead[] = [
     source: "Referral",
     assignedTo: "Anjali Gurung",
     createdAt: "2026-06-30T07:25:00.000Z",
-    lastContactedAt: "2026-07-10T06:40:00.000Z",
   },
   {
     id: "lead-010",
@@ -124,7 +117,6 @@ export const leads: Lead[] = [
     source: "Social Media",
     assignedTo: "Maya Rai",
     createdAt: "2026-07-27T10:05:00.000Z",
-    lastContactedAt: "2026-07-31T11:15:00.000Z",
   },
   {
     id: "lead-011",
@@ -136,7 +128,6 @@ export const leads: Lead[] = [
     source: "Event",
     assignedTo: "Bikash Karki",
     createdAt: "2026-07-15T09:50:00.000Z",
-    lastContactedAt: "2026-07-27T08:00:00.000Z",
   },
   {
     id: "lead-012",
@@ -148,7 +139,6 @@ export const leads: Lead[] = [
     source: "Website",
     assignedTo: "Suresh Lama",
     createdAt: "2026-07-29T06:30:00.000Z",
-    lastContactedAt: "2026-07-31T07:00:00.000Z",
   },
   {
     id: "lead-013",
@@ -160,7 +150,6 @@ export const leads: Lead[] = [
     source: "Phone Inquiry",
     assignedTo: "Anjali Gurung",
     createdAt: "2026-06-28T05:15:00.000Z",
-    lastContactedAt: "2026-07-08T09:30:00.000Z",
   },
   {
     id: "lead-014",
@@ -183,7 +172,6 @@ export const leads: Lead[] = [
     source: "Referral",
     assignedTo: "Bikash Karki",
     createdAt: "2026-06-22T08:45:00.000Z",
-    lastContactedAt: "2026-07-01T10:20:00.000Z",
   },
   {
     id: "lead-016",
@@ -195,6 +183,5 @@ export const leads: Lead[] = [
     source: "Website",
     assignedTo: "Suresh Lama",
     createdAt: "2026-07-31T12:00:00.000Z",
-    lastContactedAt: "2026-08-01T06:45:00.000Z",
   },
 ];

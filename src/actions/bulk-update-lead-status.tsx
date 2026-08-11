@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
 import {
+  LeadActivityType as DatabaseLeadActivityType,
   LeadStatus as DatabaseLeadStatus,
   UserRole,
 } from "@/generated/prisma/client";
@@ -11,16 +12,12 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import {
+  bulkEligibleLeadStatusValues,
+} from "@/lib/lead-status-rules";
+
+import {
   getCurrentAuthenticatedUser,
 } from "@/services/user-service";
-
-const manuallyEditableStatuses = [
-  "NEW",
-  "CONTACTED",
-  "INTERESTED",
-  "FOLLOW_UP",
-  "LOST",
-] as const;
 
 const bulkUpdateLeadStatusSchema = z.object({
   leadIds: z
@@ -41,10 +38,10 @@ const bulkUpdateLeadStatusSchema = z.object({
     ]),
 
   status: z.enum(
-    manuallyEditableStatuses,
+    bulkEligibleLeadStatusValues,
     {
       error:
-        "Select a valid lead status.",
+        "Select a valid lead status. Bulk updates cannot move leads to Follow-up or reactivate Lost leads — do those one lead at a time so a follow-up date or note can be recorded.",
     },
   ),
 });
@@ -145,12 +142,24 @@ export async function bulkChangeLeadStatus(
   const leadIds =
     result.data.leadIds;
 
+  const toStatus =
+    result.data.status as DatabaseLeadStatus;
+
   try {
     const updatedCount =
       await prisma.$transaction(
         async (transaction) => {
-          const updateResult =
-            await transaction.lead.updateMany({
+          /*
+           * Bulk status-change can't collect a per-lead note or
+           * follow-up date, so it may only target statuses whose
+           * transition never requires either (see
+           * lib/lead-status-rules.ts). LOST and ENROLLED source
+           * leads are excluded for the same reason: reactivating
+           * a LOST lead always requires a note, and ENROLLED is
+           * terminal.
+           */
+          const eligibleLeads =
+            await transaction.lead.findMany({
               where: {
                 id: {
                   in: leadIds,
@@ -158,11 +167,11 @@ export async function bulkChangeLeadStatus(
 
                 archivedAt: null,
 
-                // Enrolled leads must use
-                // the enrollment workflow.
                 status: {
-                  not:
+                  notIn: [
                     DatabaseLeadStatus.ENROLLED,
+                    DatabaseLeadStatus.LOST,
+                  ],
                 },
 
                 ...(currentUser.role ===
@@ -174,26 +183,69 @@ export async function bulkChangeLeadStatus(
                     }),
               },
 
-              data: {
-                status:
-                  result.data
-                    .status as DatabaseLeadStatus,
+              select: {
+                id: true,
+                status: true,
               },
             });
 
           /*
-           * If even one selected lead
-           * was unauthorized, archived,
-           * enrolled, or missing,
-           * abort the whole transaction.
-           *
-           * No partial update.
+           * If even one selected lead was unauthorized, archived,
+           * enrolled, lost, or missing, abort the whole
+           * transaction. No partial update.
            */
+          if (
+            eligibleLeads.length !==
+            leadIds.length
+          ) {
+            throw new BulkLeadAuthorizationError();
+          }
+
+          const updateResult =
+            await transaction.lead.updateMany({
+              where: {
+                id: {
+                  in: eligibleLeads.map(
+                    (lead) => lead.id,
+                  ),
+                },
+              },
+
+              data: {
+                status: toStatus,
+              },
+            });
+
           if (
             updateResult.count !==
             leadIds.length
           ) {
             throw new BulkLeadAuthorizationError();
+          }
+
+          /*
+           * Skip leads that were already at the target status —
+           * a "moved from CONTACTED to CONTACTED" activity row
+           * would just be noise.
+           */
+          const changedLeads =
+            eligibleLeads.filter(
+              (lead) =>
+                lead.status !== toStatus,
+            );
+
+          if (changedLeads.length > 0) {
+            await transaction.leadActivity.createMany({
+              data: changedLeads.map(
+                (lead) => ({
+                  leadId: lead.id,
+                  type: DatabaseLeadActivityType.STATUS_CHANGE,
+                  fromStatus: lead.status,
+                  toStatus,
+                  changedById: currentUser.id,
+                }),
+              ),
+            });
           }
 
           return updateResult.count;
@@ -221,9 +273,7 @@ export async function bulkChangeLeadStatus(
       data: {
         updatedCount,
 
-        status:
-          result.data
-            .status as DatabaseLeadStatus,
+        status: toStatus,
       },
 
       fieldErrors: {},
@@ -237,7 +287,7 @@ export async function bulkChangeLeadStatus(
         success: false,
 
         message:
-          "One or more selected leads are unavailable or you do not have permission to update them.",
+          "One or more selected leads are unavailable, already Lost/Enrolled, or you do not have permission to update them.",
 
         fieldErrors: {},
       };

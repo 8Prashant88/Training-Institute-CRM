@@ -9,13 +9,16 @@ import {
   type LeadStatus,
 } from "@/types/lead";
 
+/*
+ * Matches bulkEligibleLeadStatusValues in lib/lead-status-rules.ts.
+ * FOLLOW_UP (needs a date) and LOST (reactivation needs a note) are
+ * single-lead-only moves, so bulk changes stay fully auditable.
+ */
 const bulkEditableStatuses:
   LeadStatus[] = [
     "NEW",
     "CONTACTED",
     "INTERESTED",
-    "FOLLOW_UP",
-    "LOST",
   ];
 
 type LeadBulkActionsBarProps = {

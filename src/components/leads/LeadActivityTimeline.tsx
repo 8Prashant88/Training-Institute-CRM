@@ -1,66 +1,97 @@
 import {
+  ArrowRightLeft,
+  CalendarClock,
+  CalendarX,
   CircleUserRound,
-  GraduationCap,
-  PhoneCall,
-  XCircle,
   type LucideIcon,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/Card";
 import { formatDate, formatRelativeDate } from "@/lib/format";
-import type { Lead } from "@/types/lead";
+import {
+  leadStatusLabels,
+  type LeadSource,
+} from "@/types/lead";
+import type { LeadActivityDetails } from "@/services/lead-service";
 
 type TimelineEvent = {
   icon: LucideIcon;
   title: string;
+  note: string | null;
   timestamp: string;
   tone: string;
 };
 
-function buildTimeline(lead: Lead): TimelineEvent[] {
-  const events: TimelineEvent[] = [
+function buildEvents(
+  activities: LeadActivityDetails[],
+  createdAt: string,
+  source: LeadSource,
+): TimelineEvent[] {
+  const activityEvents: TimelineEvent[] = activities.map((activity) => {
+    if (activity.type === "STATUS_CHANGE") {
+      const fromLabel = activity.fromStatus
+        ? leadStatusLabels[activity.fromStatus]
+        : "unknown";
+
+      const toLabel = activity.toStatus
+        ? leadStatusLabels[activity.toStatus]
+        : "unknown";
+
+      return {
+        icon: ArrowRightLeft,
+        title: `${activity.changedBy.fullName} moved this lead from ${fromLabel} to ${toLabel}`,
+        note: activity.note,
+        timestamp: activity.createdAt,
+        tone: "bg-primary-100 text-primary-800",
+      };
+    }
+
+    if (activity.type === "FOLLOW_UP_SCHEDULED") {
+      return {
+        icon: CalendarClock,
+        title: activity.nextFollowUpAt
+          ? `${activity.changedBy.fullName} scheduled a follow-up for ${formatDate(activity.nextFollowUpAt)}`
+          : `${activity.changedBy.fullName} scheduled a follow-up`,
+        note: activity.note,
+        timestamp: activity.createdAt,
+        tone: "bg-accent-50 text-accent-800",
+      };
+    }
+
+    // FOLLOW_UP_CLEARED
+    return {
+      icon: CalendarX,
+      title: `${activity.changedBy.fullName} cleared the scheduled follow-up`,
+      note: activity.note,
+      timestamp: activity.createdAt,
+      tone: "bg-slate-100 text-slate-600",
+    };
+  });
+
+  return [
+    ...activityEvents,
     {
       icon: CircleUserRound,
-      title: `Lead captured via ${lead.source}`,
-      timestamp: lead.createdAt,
+      title: `Lead captured via ${source}`,
+      note: null,
+      timestamp: createdAt,
       tone: "bg-blue-100 text-blue-700",
     },
   ];
-
-  if (lead.lastContactedAt) {
-    events.push({
-      icon: PhoneCall,
-      title: `${lead.assignedTo} contacted this lead`,
-      timestamp: lead.lastContactedAt,
-      tone: "bg-primary-100 text-primary-800",
-    });
-  }
-
-  if (lead.status === "ENROLLED") {
-    events.push({
-      icon: GraduationCap,
-      title: `Enrolled in ${lead.interestedCourse}`,
-      timestamp: lead.lastContactedAt ?? lead.createdAt,
-      tone: "bg-green-100 text-green-700",
-    });
-  }
-
-  if (lead.status === "LOST") {
-    events.push({
-      icon: XCircle,
-      title: "Lead marked as lost",
-      timestamp: lead.lastContactedAt ?? lead.createdAt,
-      tone: "bg-red-100 text-red-700",
-    });
-  }
-
-  return events.sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-  );
 }
 
-export default function LeadActivityTimeline({ lead }: { lead: Lead }) {
-  const events = buildTimeline(lead);
+type LeadActivityTimelineProps = {
+  activities: LeadActivityDetails[];
+  createdAt: string;
+  source: LeadSource;
+};
+
+export default function LeadActivityTimeline({
+  activities,
+  createdAt,
+  source,
+}: LeadActivityTimelineProps) {
+  const events = buildEvents(activities, createdAt, source);
 
   return (
     <Card>
@@ -70,7 +101,10 @@ export default function LeadActivityTimeline({ lead }: { lead: Lead }) {
             const Icon = event.icon;
 
             return (
-              <li key={`${event.title}-${event.timestamp}`} className="relative flex gap-4">
+              <li
+                key={`${event.title}-${event.timestamp}-${index}`}
+                className="relative flex gap-4"
+              >
                 {index < events.length - 1 && (
                   <span
                     aria-hidden="true"
@@ -89,6 +123,13 @@ export default function LeadActivityTimeline({ lead }: { lead: Lead }) {
                   <p className="text-sm font-medium text-slate-800">
                     {event.title}
                   </p>
+
+                  {event.note && (
+                    <p className="mt-1 text-sm text-slate-600">
+                      {event.note}
+                    </p>
+                  )}
+
                   <p
                     className="mt-0.5 text-xs text-slate-500"
                     title={formatDate(event.timestamp)}

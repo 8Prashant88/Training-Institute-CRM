@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  AlarmClock,
   BookOpen,
   CalendarDays,
   LayoutDashboard,
@@ -24,6 +25,11 @@ export const navigationLinks: NavLink[] = [
     href: "/dashboard/leads",
     label: "Leads",
     icon: Users,
+  },
+  {
+    href: "/dashboard/leads/follow-ups",
+    label: "Follow-ups",
+    icon: AlarmClock,
   },
   {
     href: "/dashboard/courses",

@@ -53,6 +53,4 @@ export type Lead = {
   createdAt: string;
 
   nextFollowUpAt?: string | null;
-
-  lastContactedAt?: string;
 };

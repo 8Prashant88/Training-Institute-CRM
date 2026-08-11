@@ -1,11 +1,18 @@
 import "server-only";
 
 import {
+  LeadActivityType as DatabaseLeadActivityType,
   LeadSource as DatabaseLeadSource,
   LeadStatus as DatabaseLeadStatus,
   UserRole
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  getLeadStatusTransitionRequirement,
+  isFollowUpDateOnOrAfterToday,
+  requiresFollowUpDate,
+  requiresNote,
+} from "@/lib/lead-status-rules";
 import type {
   Lead,
   LeadSource,
@@ -22,6 +29,88 @@ export type UpdatedLeadStatus = {
 export type ArchivedLead = {
   id: string;
   archivedAt: string;
+};
+
+export type LeadStatusChangeErrorCode =
+  | "LEAD_NOT_FOUND"
+  | "FORBIDDEN"
+  | "INVALID_TRANSITION"
+  | "NOTE_REQUIRED"
+  | "FOLLOW_UP_DATE_REQUIRED"
+  | "FOLLOW_UP_DATE_IN_PAST";
+
+export class LeadStatusChangeError extends Error {
+  readonly code: LeadStatusChangeErrorCode;
+
+  constructor(code: LeadStatusChangeErrorCode, message: string) {
+    super(message);
+
+    this.name = "LeadStatusChangeError";
+    this.code = code;
+  }
+}
+
+export type ChangeLeadStatusInput = {
+  leadId: string;
+  toStatus: DatabaseLeadStatus;
+
+  actor: {
+    id: string;
+    role: UserRole;
+  };
+
+  note?: string | null;
+  nextFollowUpAt?: Date | null;
+};
+
+export type ScheduleLeadFollowUpErrorCode =
+  | "LEAD_NOT_FOUND"
+  | "FORBIDDEN"
+  | "LEAD_NOT_ELIGIBLE"
+  | "FOLLOW_UP_DATE_IN_PAST";
+
+export class ScheduleLeadFollowUpError extends Error {
+  readonly code: ScheduleLeadFollowUpErrorCode;
+
+  constructor(code: ScheduleLeadFollowUpErrorCode, message: string) {
+    super(message);
+
+    this.name = "ScheduleLeadFollowUpError";
+    this.code = code;
+  }
+}
+
+export type ScheduleLeadFollowUpInput = {
+  leadId: string;
+
+  actor: {
+    id: string;
+    role: UserRole;
+  };
+
+  /** null clears the scheduled follow-up date. */
+  nextFollowUpAt: Date | null;
+  note?: string | null;
+};
+
+export type ScheduledLeadFollowUp = {
+  id: string;
+  nextFollowUpAt: string | null;
+};
+
+export type LeadActivityDetails = {
+  id: string;
+  type: DatabaseLeadActivityType;
+  fromStatus: LeadStatus | null;
+  toStatus: LeadStatus | null;
+  previousFollowUpAt: string | null;
+  nextFollowUpAt: string | null;
+  note: string | null;
+  createdAt: string;
+  changedBy: {
+    id: string;
+    fullName: string;
+  };
 };
 
 const sourceLabels: Record<DatabaseLeadSource, LeadSource> = {
@@ -299,29 +388,268 @@ export async function createLead(
 }
 
 export async function updateLeadStatus(
-  id: string,
-  status: DatabaseLeadStatus,
+  input: ChangeLeadStatusInput,
 ): Promise<UpdatedLeadStatus> {
-  const updatedLead = await prisma.lead.update({
-    where: {
-      id,
-      archivedAt: null,
-    },
+  return prisma.$transaction(async (transaction) => {
+    const lead = await transaction.lead.findFirst({
+      where: {
+        id: input.leadId,
+        archivedAt: null,
+      },
 
-    data: {
-      status,
+      select: {
+        id: true,
+        status: true,
+        assignedCounselorId: true,
+      },
+    });
+
+    if (!lead) {
+      throw new LeadStatusChangeError(
+        "LEAD_NOT_FOUND",
+        "The lead was not found or has been archived.",
+      );
+    }
+
+    /*
+     * Re-checked here, inside the transaction, against the lead's
+     * CURRENT assignment — not just the snapshot the server action
+     * looked up before calling this function. Closes the window where
+     * an admin could reassign the lead between that earlier check and
+     * this write.
+     */
+    const canAccess =
+      input.actor.role === UserRole.ADMIN ||
+      lead.assignedCounselorId === input.actor.id;
+
+    if (!canAccess) {
+      throw new LeadStatusChangeError(
+        "FORBIDDEN",
+        "You are not authorized to update this lead.",
+      );
+    }
+
+    const requirement = getLeadStatusTransitionRequirement(
+      lead.status,
+      input.toStatus,
+    );
+
+    if (requirement === "BLOCKED") {
+      throw new LeadStatusChangeError(
+        "INVALID_TRANSITION",
+        `A lead cannot move from ${lead.status} to ${input.toStatus}.`,
+      );
+    }
+
+    if (requiresNote(requirement) && !input.note?.trim()) {
+      throw new LeadStatusChangeError(
+        "NOTE_REQUIRED",
+        "A note explaining this change is required.",
+      );
+    }
+
+    if (requiresFollowUpDate(requirement)) {
+      if (!input.nextFollowUpAt) {
+        throw new LeadStatusChangeError(
+          "FOLLOW_UP_DATE_REQUIRED",
+          "A next follow-up date is required to move this lead to Follow-up.",
+        );
+      }
+
+      if (!isFollowUpDateOnOrAfterToday(input.nextFollowUpAt)) {
+        throw new LeadStatusChangeError(
+          "FOLLOW_UP_DATE_IN_PAST",
+          "The follow-up date cannot be in the past.",
+        );
+      }
+    }
+
+    const setsFollowUpDate = input.toStatus === DatabaseLeadStatus.FOLLOW_UP;
+
+    const updatedLead = await transaction.lead.update({
+      where: {
+        id: input.leadId,
+      },
+
+      data: {
+        status: input.toStatus,
+
+        ...(setsFollowUpDate
+          ? { nextFollowUpAt: input.nextFollowUpAt }
+          : {}),
+      },
+
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    await transaction.leadActivity.create({
+      data: {
+        leadId: input.leadId,
+        type: DatabaseLeadActivityType.STATUS_CHANGE,
+        fromStatus: lead.status,
+        toStatus: input.toStatus,
+        note: input.note?.trim() || null,
+        changedById: input.actor.id,
+
+        ...(setsFollowUpDate
+          ? { nextFollowUpAt: input.nextFollowUpAt }
+          : {}),
+      },
+    });
+
+    return {
+      id: updatedLead.id,
+      status: statusLabels[updatedLead.status],
+    };
+  });
+}
+
+export async function scheduleLeadFollowUp(
+  input: ScheduleLeadFollowUpInput,
+): Promise<ScheduledLeadFollowUp> {
+  return prisma.$transaction(async (transaction) => {
+    const lead = await transaction.lead.findFirst({
+      where: {
+        id: input.leadId,
+        archivedAt: null,
+      },
+
+      select: {
+        id: true,
+        status: true,
+        assignedCounselorId: true,
+        nextFollowUpAt: true,
+      },
+    });
+
+    if (!lead) {
+      throw new ScheduleLeadFollowUpError(
+        "LEAD_NOT_FOUND",
+        "The lead was not found or has been archived.",
+      );
+    }
+
+    const canAccess =
+      input.actor.role === UserRole.ADMIN ||
+      lead.assignedCounselorId === input.actor.id;
+
+    if (!canAccess) {
+      throw new ScheduleLeadFollowUpError(
+        "FORBIDDEN",
+        "You are not authorized to update this lead.",
+      );
+    }
+
+    /*
+     * ENROLLED is terminal and LOST must go through the status-change
+     * flow (which requires a note explaining the reactivation) instead
+     * of a bare follow-up date update.
+     */
+    if (
+      lead.status === DatabaseLeadStatus.ENROLLED ||
+      lead.status === DatabaseLeadStatus.LOST
+    ) {
+      throw new ScheduleLeadFollowUpError(
+        "LEAD_NOT_ELIGIBLE",
+        "This lead's status does not allow scheduling a follow-up.",
+      );
+    }
+
+    if (
+      input.nextFollowUpAt &&
+      !isFollowUpDateOnOrAfterToday(input.nextFollowUpAt)
+    ) {
+      throw new ScheduleLeadFollowUpError(
+        "FOLLOW_UP_DATE_IN_PAST",
+        "The follow-up date cannot be in the past.",
+      );
+    }
+
+    const updatedLead = await transaction.lead.update({
+      where: {
+        id: input.leadId,
+      },
+
+      data: {
+        nextFollowUpAt: input.nextFollowUpAt,
+      },
+
+      select: {
+        id: true,
+        nextFollowUpAt: true,
+      },
+    });
+
+    await transaction.leadActivity.create({
+      data: {
+        leadId: input.leadId,
+
+        type: input.nextFollowUpAt
+          ? DatabaseLeadActivityType.FOLLOW_UP_SCHEDULED
+          : DatabaseLeadActivityType.FOLLOW_UP_CLEARED,
+
+        previousFollowUpAt: lead.nextFollowUpAt,
+        nextFollowUpAt: input.nextFollowUpAt,
+        note: input.note?.trim() || null,
+        changedById: input.actor.id,
+      },
+    });
+
+    return {
+      id: updatedLead.id,
+      nextFollowUpAt: updatedLead.nextFollowUpAt?.toISOString() ?? null,
+    };
+  });
+}
+
+export async function getLeadActivity(
+  leadId: string,
+): Promise<LeadActivityDetails[]> {
+  const activities = await prisma.leadActivity.findMany({
+    where: {
+      leadId,
     },
 
     select: {
       id: true,
-      status: true,
+      type: true,
+      fromStatus: true,
+      toStatus: true,
+      previousFollowUpAt: true,
+      nextFollowUpAt: true,
+      note: true,
+      createdAt: true,
+
+      changedBy: {
+        select: {
+          id: true,
+          fullName: true,
+        },
+      },
+    },
+
+    orderBy: {
+      createdAt: "desc",
     },
   });
 
-  return {
-    id: updatedLead.id,
-    status: statusLabels[updatedLead.status],
-  };
+  return activities.map((activity) => ({
+    id: activity.id,
+    type: activity.type,
+    fromStatus: activity.fromStatus
+      ? statusLabels[activity.fromStatus]
+      : null,
+    toStatus: activity.toStatus ? statusLabels[activity.toStatus] : null,
+    previousFollowUpAt:
+      activity.previousFollowUpAt?.toISOString() ?? null,
+    nextFollowUpAt: activity.nextFollowUpAt?.toISOString() ?? null,
+    note: activity.note,
+    createdAt: activity.createdAt.toISOString(),
+    changedBy: activity.changedBy,
+  }));
 }
 
 export async function createLeadNote(

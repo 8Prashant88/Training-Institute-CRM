@@ -39,14 +39,6 @@ export default function LeadOverview({ lead }: { lead: Lead }) {
             label="Created on"
             value={formatDate(lead.createdAt)}
           />
-          <OverviewItem
-            label="Last contacted"
-            value={
-              lead.lastContactedAt
-                ? formatDate(lead.lastContactedAt)
-                : "Not contacted yet"
-            }
-          />
         </dl>
       </CardContent>
     </Card>

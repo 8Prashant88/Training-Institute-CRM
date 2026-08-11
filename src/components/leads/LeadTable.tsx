@@ -34,13 +34,15 @@ import type {
 type LeadTableProps = {
   leads: Lead[];
 
-  selectedIds:
+  selectable?: boolean;
+
+  selectedIds?:
     Set<string>;
 
-  onToggleOne:
+  onToggleOne?:
     (id: string) => void;
 
-  onToggleAll:
+  onToggleAll?:
     () => void;
 
   disabled?: boolean;
@@ -48,6 +50,7 @@ type LeadTableProps = {
 
 export default function LeadTable({
   leads,
+  selectable = true,
   selectedIds,
   onToggleOne,
   onToggleAll,
@@ -57,9 +60,10 @@ export default function LeadTable({
     useRouter();
 
   const allSelected =
+    selectable &&
     leads.length > 0 &&
     leads.every((lead) =>
-      selectedIds.has(
+      selectedIds?.has(
         lead.id,
       ),
     );
@@ -69,22 +73,24 @@ export default function LeadTable({
       <Table>
         <THead>
           <TR>
-            <TH className="w-10">
-              <input
-                type="checkbox"
-                aria-label="Select all leads on this page"
-                checked={
-                  allSelected
-                }
-                disabled={
-                  disabled
-                }
-                onChange={
-                  onToggleAll
-                }
-                className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </TH>
+            {selectable && (
+              <TH className="w-10">
+                <input
+                  type="checkbox"
+                  aria-label="Select all leads on this page"
+                  checked={
+                    allSelected
+                  }
+                  disabled={
+                    disabled
+                  }
+                  onChange={
+                    onToggleAll
+                  }
+                  className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </TH>
+            )}
 
             <TH>Lead</TH>
             <TH>Status</TH>
@@ -114,30 +120,34 @@ export default function LeadTable({
                 }
                 className="cursor-pointer hover:bg-slate-50"
               >
-                <TD
-                  onClick={(
-                    event,
-                  ) =>
-                    event.stopPropagation()
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${lead.fullName}`}
-                    checked={selectedIds.has(
-                      lead.id,
-                    )}
-                    disabled={
-                      disabled
+                {selectable && (
+                  <TD
+                    onClick={(
+                      event,
+                    ) =>
+                      event.stopPropagation()
                     }
-                    onChange={() =>
-                      onToggleOne(
-                        lead.id,
-                      )
-                    }
-                    className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </TD>
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${lead.fullName}`}
+                      checked={Boolean(
+                        selectedIds?.has(
+                          lead.id,
+                        ),
+                      )}
+                      disabled={
+                        disabled
+                      }
+                      onChange={() =>
+                        onToggleOne?.(
+                          lead.id,
+                        )
+                      }
+                      className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </TD>
+                )}
 
                 <TD>
                   <div className="flex min-w-0 items-center gap-3">

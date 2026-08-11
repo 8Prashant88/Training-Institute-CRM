@@ -1,24 +1,22 @@
 "use client";
 
 import {
-  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  LoaderCircle,
   Mail,
   Phone,
 } from "lucide-react";
 
-import { changeLeadStatus } from "@/actions/update-lead-status";
+import ChangeLeadStatusDialog from "@/components/leads/ChangeLeadStatusDialog";
+import LeadFollowUpControl from "@/components/leads/LeadFollowUpControl";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import {
   buttonVariants,
 } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
-import { useToast } from "@/components/ui/Toast";
 import { formatDate } from "@/lib/format";
 import {
   leadStatusLabels,
@@ -35,91 +33,28 @@ export default function LeadDetailHeader({
   lead,
 }: LeadDetailHeaderProps) {
   const router = useRouter();
-  const { toast } = useToast();
 
   const [status, setStatus] =
     useState<LeadStatus>(lead.status);
 
-  const [isUpdating, setIsUpdating] =
-    useState(false);
-
-  const updateLockRef = useRef(false);
+  const [targetStatus, setTargetStatus] =
+    useState<LeadStatus | null>(null);
 
   const isEnrolled =
     status === "ENROLLED";
 
-  async function handleStatusChange(
+  function handleStatusSelected(
     nextStatus: LeadStatus,
   ) {
-    if (
-      updateLockRef.current ||
-      nextStatus === status
-    ) {
+    if (nextStatus === status) {
       return;
     }
 
-    const previousStatus = status;
-
-    updateLockRef.current = true;
-    setIsUpdating(true);
-
-    // Optimistic UI update
-    setStatus(nextStatus);
-
-    try {
-      const result =
-        await changeLeadStatus({
-          leadId: lead.id,
-          status: nextStatus,
-        });
-
-      if (!result.success) {
-        setStatus(previousStatus);
-
-        toast({
-          variant: "error",
-          title: "Status not updated",
-          description: result.message,
-        });
-
-        return;
-      }
-
-      // Use the value confirmed by PostgreSQL.
-      setStatus(result.data.status);
-
-      toast({
-        variant: "success",
-        title: "Status updated",
-        description: `${lead.fullName} is now marked as ${
-          leadStatusLabels[
-            result.data.status
-          ]
-        }.`,
-      });
-
-      router.refresh();
-    } catch (error) {
-      console.error(
-        "Status update failed",
-        error,
-      );
-
-      setStatus(previousStatus);
-
-      toast({
-        variant: "error",
-        title: "Status not updated",
-        description:
-          "An unexpected error occurred. Please try again.",
-      });
-    } finally {
-      updateLockRef.current = false;
-      setIsUpdating(false);
-    }
+    setTargetStatus(nextStatus);
   }
 
   return (
+    <>
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-4">
@@ -181,13 +116,9 @@ export default function LeadDetailHeader({
             <Select
               id="lead-status"
               value={status}
-              disabled={
-                isUpdating ||
-                isEnrolled
-              }
-              aria-busy={isUpdating}
+              disabled={isEnrolled}
               onChange={(event) => {
-                void handleStatusChange(
+                handleStatusSelected(
                   event.target
                     .value as LeadStatus,
                 );
@@ -215,23 +146,7 @@ export default function LeadDetailHeader({
                 ),
               )}
             </Select>
-
-            {isUpdating && (
-              <LoaderCircle
-                aria-hidden="true"
-                className="pointer-events-none absolute right-8 top-1/2 size-4 -translate-y-1/2 animate-spin text-slate-500"
-              />
-            )}
           </div>
-
-          {isUpdating && (
-            <p
-              role="status"
-              className="text-xs text-slate-500"
-            >
-              Saving status...
-            </p>
-          )}
 
           {isEnrolled && (
             <p className="max-w-48 text-right text-xs leading-4 text-slate-500">
@@ -272,7 +187,30 @@ export default function LeadDetailHeader({
 
           {lead.phone}
         </a>
+
+        <LeadFollowUpControl
+          leadId={lead.id}
+          leadName={lead.fullName}
+          status={status}
+          nextFollowUpAt={lead.nextFollowUpAt ?? null}
+        />
       </div>
     </div>
+
+    <ChangeLeadStatusDialog
+      key={targetStatus ?? "closed"}
+      open={targetStatus !== null}
+      leadId={lead.id}
+      leadName={lead.fullName}
+      currentStatus={status}
+      targetStatus={targetStatus}
+      onClose={() => setTargetStatus(null)}
+      onSuccess={(newStatus) => {
+        setStatus(newStatus);
+        setTargetStatus(null);
+        router.refresh();
+      }}
+    />
+    </>
   );
 }

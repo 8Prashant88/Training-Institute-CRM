@@ -6,6 +6,8 @@ import {
   redirect,
 } from "next/navigation";
 
+import LeadPipelineBoard from "@/components/leads/LeadPipelineBoard";
+import LeadsViewSwitcher from "@/components/leads/LeadsViewSwitcher";
 import LeadsWorkspace from "@/components/leads/LeadsWorkspace";
 
 import {
@@ -31,6 +33,10 @@ import {
 import {
   listLeadPage,
 } from "@/services/lead-list-service";
+
+import {
+  listLeadPipeline,
+} from "@/services/lead-pipeline-service";
 
 import {
   getCurrentAuthenticatedUser,
@@ -184,6 +190,7 @@ export default async function LeadsPage({
     courseFilterOptions,
     activeCounselors,
     counselorFilterOptions,
+    pipelineColumns,
   ] = await Promise.all([
     listLeadPage(
       currentUser,
@@ -213,6 +220,15 @@ export default async function LeadsPage({
     canManageAssignments
       ? listCounselorsForLeadFilters()
       : Promise.resolve([]),
+
+    /*
+     * Board view. Scoped the same way as the table (counselor filter,
+     * ADMIN-only), but does not apply search/status/source/course
+     * filters yet — it always shows every status column at once.
+     */
+    listLeadPipeline(currentUser, {
+      counselorId: canManageAssignments ? query.counselor : undefined,
+    }),
   ]);
 
   /*
@@ -282,39 +298,47 @@ if (
         </p>
       </section>
 
-      <LeadsWorkspace
-        initialLeads={
-          leadResult.items
+      <LeadsViewSwitcher
+        tableView={
+          <LeadsWorkspace
+            initialLeads={
+              leadResult.items
+            }
+
+            query={query}
+
+            statusCounts={
+              leadResult.statusCounts
+            }
+
+            pagination={
+              leadResult.pagination
+            }
+
+            courses={
+              courseOptions
+            }
+
+            courseFilterOptions={
+              courseFilterOptions
+            }
+
+            counselors={
+              activeCounselors
+            }
+
+            counselorFilterOptions={
+              counselorFilterOptions
+            }
+
+            canManageAssignments={
+              canManageAssignments
+            }
+          />
         }
 
-        query={query}
-
-        statusCounts={
-          leadResult.statusCounts
-        }
-
-        pagination={
-          leadResult.pagination
-        }
-
-        courses={
-          courseOptions
-        }
-
-        courseFilterOptions={
-          courseFilterOptions
-        }
-
-        counselors={
-          activeCounselors
-        }
-
-        counselorFilterOptions={
-          counselorFilterOptions
-        }
-
-        canManageAssignments={
-          canManageAssignments
+        boardView={
+          <LeadPipelineBoard columns={pipelineColumns} />
         }
       />
     </div>

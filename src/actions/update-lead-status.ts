@@ -7,7 +7,11 @@ import {
   LeadStatus as DatabaseLeadStatus,
 } from "@/generated/prisma/client";
 import {
-  getLeadById,  
+  manuallyEditableLeadStatusValues,
+} from "@/lib/lead-status-rules";
+import {
+  getLeadById,
+  LeadStatusChangeError,
   updateLeadStatus,
   type UpdatedLeadStatus,
 } from "@/services/lead-service";
@@ -19,14 +23,6 @@ import {
 import {
   getCurrentAuthenticatedUser,
 } from "@/services/user-service";
-
-const manuallyEditableLeadStatusValues = [
-  "NEW",
-  "CONTACTED",
-  "INTERESTED",
-  "FOLLOW_UP",
-  "LOST",
-] as const;
 
 const updateLeadStatusSchema = z.object({
   leadId: z.uuid({
@@ -40,6 +36,20 @@ const updateLeadStatusSchema = z.object({
       "Select a valid manually editable lead status.",
   },
 ),
+
+  note: z
+    .string()
+    .trim()
+    .max(2000, {
+      error: "Notes cannot exceed 2000 characters.",
+    })
+    .optional(),
+
+  nextFollowUpAt: z.coerce
+    .date({
+      error: "Enter a valid follow-up date.",
+    })
+    .optional(),
 });
 
 export type UpdateLeadStatusInput = z.infer<
@@ -98,6 +108,12 @@ export async function changeLeadStatus(
 
         status:
           errors.fieldErrors.status?.[0],
+
+        note:
+          errors.fieldErrors.note?.[0],
+
+        nextFollowUpAt:
+          errors.fieldErrors.nextFollowUpAt?.[0],
       },
     };
   }
@@ -143,14 +159,22 @@ export async function changeLeadStatus(
   }
 
   const updatedLead =
-    await updateLeadStatus(
-      result.data.leadId,
-      result.data
-        .status as DatabaseLeadStatus,
-    );
+    await updateLeadStatus({
+      leadId: result.data.leadId,
+      toStatus: result.data.status as DatabaseLeadStatus,
+
+      actor: {
+        id: currentUser.id,
+        role: currentUser.role,
+      },
+
+      note: result.data.note,
+      nextFollowUpAt: result.data.nextFollowUpAt,
+    });
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard/leads/follow-ups");
     revalidatePath(
       `/dashboard/leads/${updatedLead.id}`,
     );
@@ -163,6 +187,40 @@ export async function changeLeadStatus(
       fieldErrors: {},
     };
   } catch (error) {
+    if (error instanceof LeadStatusChangeError) {
+      switch (error.code) {
+        case "LEAD_NOT_FOUND":
+        case "FORBIDDEN":
+          return {
+            success: false,
+            message: error.message,
+            fieldErrors: {},
+          };
+
+        case "INVALID_TRANSITION":
+          return {
+            success: false,
+            message: error.message,
+            fieldErrors: { status: error.message },
+          };
+
+        case "NOTE_REQUIRED":
+          return {
+            success: false,
+            message: error.message,
+            fieldErrors: { note: error.message },
+          };
+
+        case "FOLLOW_UP_DATE_REQUIRED":
+        case "FOLLOW_UP_DATE_IN_PAST":
+          return {
+            success: false,
+            message: error.message,
+            fieldErrors: { nextFollowUpAt: error.message },
+          };
+      }
+    }
+
     if (isRecordNotFoundError(error)) {
       return {
         success: false,

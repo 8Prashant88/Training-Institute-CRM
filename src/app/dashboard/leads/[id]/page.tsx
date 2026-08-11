@@ -27,6 +27,7 @@ import {
 } from "@/services/course-service";
 
 import {
+  getLeadActivity,
   getLeadById,
 } from "@/services/lead-service";
 
@@ -119,6 +120,7 @@ export default async function LeadDetailPage({
     courses,
     counselors,
     enrollmentBatches,
+    activities,
   ] = await Promise.all([
     listActiveCourses(),
 
@@ -127,6 +129,8 @@ export default async function LeadDetailPage({
       : Promise.resolve([]),
 
     listEnrollmentBatchOptions(),
+
+    getLeadActivity(lead.id),
   ]);
 
   const initialData = {
@@ -227,7 +231,9 @@ export default async function LeadDetailPage({
 
             content: (
               <LeadActivityTimeline
-                lead={lead}
+                activities={activities}
+                createdAt={lead.createdAt}
+                source={lead.source}
               />
             ),
           },

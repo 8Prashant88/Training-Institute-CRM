@@ -532,3 +532,33 @@
 - Authorization must remain enforced by the server even when filters come from the URL.
 - Database pagination requires total counts and stable ordering.
 - Creation forms and historical filters can require different datasets.
+
+## Day 15 — Lead Pipeline and Follow-Up Workflow
+
+### What I completed
+
+- Designed a lead-status transition table defining which status moves are allowed, blocked, or require a note and/or a follow-up date.
+- Centralized the transition rules and manually-editable status list in one shared module instead of duplicating them across Server Actions.
+- Added a `LeadActivity` model and Prisma migration to record every status change and follow-up date change with who made it, when, and why.
+- Rewrote lead status updates as a Prisma transaction that re-checks authorization against the lead's current assignment at write time, not just before the transaction starts.
+- Added a status-change dialog that only asks for a note or a follow-up date when the selected move actually requires one.
+- Added an independent follow-up scheduling action so a counselor can set or clear a callback date without changing the lead's status.
+- Replaced the lead-detail Activity tab, previously built from a database field no service ever populated, with one backed by real `LeadActivity` records.
+- Narrowed bulk status updates to the statuses that never require a note or date, so every bulk change still gets a full audit trail.
+- Added a database-backed Overdue and Due-today follow-up worklist, scoped to a counselor's own leads and filterable by counselor for admins.
+- Added a kanban-style lead board grouped by status, using the same status-change dialog and rules as the lead-detail page.
+- Merged the board into the existing Leads page as a Table/Board toggle instead of shipping it as a separate route.
+- Removed a dead `lastContactedAt` field that no service had ever written to, along with the fake timeline logic built on top of it.
+- Broke, diagnosed, and fixed a running dev server after clearing the Next.js build cache while it was still active.
+- Ran Prisma validation, TypeScript, ESLint, and production build checks after each major change.
+
+### What I learned
+
+- A domain state machine is easier to enforce correctly as one shared transition table than as status checks scattered across multiple Server Actions.
+- Re-checking authorization inside the same transaction that performs the write closes a race condition that a check-then-write pattern outside the transaction cannot.
+- An audit trail belongs in its own table; reusing a free-text notes table for it would mix two different kinds of records with different purposes.
+- Restricting what a bulk action is allowed to do can be the safer trade-off when the action has no way to collect input a stricter business rule requires.
+- React's documented fix for state that should reset when a prop changes is a fresh `key` that forces a remount, not an effect that calls `setState`.
+- A Prisma-generated client has separate entry points for server and browser code; only the browser-safe one should be imported into files that a Client Component might load.
+- Clearing a framework's build cache while its dev server is running can take the server down; the running process has to be restarted, not just the cache rebuilt.
+- Adding a new view alongside an existing, already-tested one is lower risk than rewriting the existing view to make room for it.

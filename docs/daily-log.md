@@ -575,7 +575,7 @@
 - Added admin-only UI controls on the batches page: inline title/capacity editing and status-transition buttons that only ever show a batch's actually-allowed next statuses, with a confirmation dialog before cancelling.
 - Hardened `enrollLead()` with a second, independent check: even if a batch's `status` field is stale (still `UPCOMING` after its `endDate` has passed), the transaction now rejects enrollment once the batch's end-of-day (UTC) has passed.
 - Added a start-date rule to batch creation: a new batch's start date can no longer be in the past.
-- Wrote a standalone verification script (`scripts/day16-verify-batch-rules.ts`) that exercises the real dev database directly — capacity exactly reached, a cancelled batch, a batch with stale-status-but-past dates, a lead enrolled twice (both the application check and the raw database unique-constraint), and two concurrent enrollment attempts for a single remaining seat. All seven checks passed, and the script cleans up every row it creates.
+- Wrote a standalone verification script (`scripts/verify-batch-enrollment-rules.ts`) that exercises the real dev database directly — capacity exactly reached, a cancelled batch, a batch with stale-status-but-past dates, a lead enrolled twice (both the application check and the raw database unique-constraint), and two concurrent enrollment attempts for a single remaining seat. All seven checks passed, and the script cleans up every row it creates.
 - Ran TypeScript, ESLint, and a production build; smoke-tested the running dev server for runtime errors on public and dashboard routes.
 
 ### What I learned

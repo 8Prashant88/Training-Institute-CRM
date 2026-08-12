@@ -1,6 +1,8 @@
 /*
- * Day 16 verification script — "test and break intentionally" for the
- * batch/enrollment rules, run directly against the real dev database.
+ * "Test and break intentionally" for the batch/enrollment business
+ * rules — capacity, batch status, past-batch dates, and duplicate/
+ * concurrent enrollment — run directly against the real dev database.
+ * Re-run this any time those rules change to confirm nothing regressed.
  *
  * Why this exists as a standalone script instead of importing the actual
  * service files (src/services/enrollment-service.ts, batch-service.ts):
@@ -17,11 +19,11 @@
  * enrollment-service.ts, unmodified by this script.
  *
  * This script creates its own throwaway Course/Batch/Lead rows (all
- * titled "Day16 QA ...") and deletes everything it created in a
- * `finally` block, including a pre-run sweep in case a previous crashed
- * run left rows behind.
+ * titled "QA ...") and deletes everything it created in a `finally`
+ * block, including a pre-run sweep in case a previous crashed run left
+ * rows behind.
  *
- * Run with: npx tsx scripts/day16-verify-batch-rules.ts
+ * Run with: npx tsx scripts/verify-batch-enrollment-rules.ts
  */
 import "dotenv/config";
 
@@ -48,7 +50,7 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
 
-const QA_PREFIX = "Day16 QA";
+const QA_PREFIX = "QA Verify";
 
 let passed = 0;
 let failed = 0;
@@ -181,7 +183,7 @@ async function sweepLeftoverQaData() {
 }
 
 async function main() {
-  console.log("Sweeping any leftover Day16 QA data from a previous run...");
+  console.log("Sweeping any leftover QA data from a previous run...");
   await sweepLeftoverQaData();
 
   const admin = await prisma.user.findFirst({
@@ -386,7 +388,7 @@ async function main() {
       `${succeeded}/2 concurrent attempts succeeded, final enrolled count = ${finalRaceCount} (expected 1 and 1)`,
     );
   } finally {
-    console.log("\nCleaning up Day16 QA data...");
+    console.log("\nCleaning up QA data...");
     await sweepLeftoverQaData();
     await prisma.$disconnect();
   }

@@ -2,7 +2,7 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -12,7 +12,19 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
 
+  /*
+   * `env("DIRECT_URL")` (Prisma's own config helper) throws immediately
+   * if the variable is missing, and this file is loaded for every
+   * Prisma command — including `prisma generate`, which never actually
+   * connects to a database. Since `postinstall` runs `prisma generate`
+   * on every `npm install`, that turned "DIRECT_URL isn't set in this
+   * environment" into "npm install fails outright" (this is what broke
+   * the Vercel build). `process.env.DIRECT_URL` is `undefined` instead
+   * of throwing when unset — generate still works without it; the
+   * commands that actually need a connection (migrate, db push,
+   * studio) still get the real value wherever DIRECT_URL is set.
+   */
   datasource: {
-    url: env("DIRECT_URL"),
+    url: process.env.DIRECT_URL,
   },
 });

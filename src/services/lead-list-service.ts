@@ -95,6 +95,27 @@ const leadListSelect = {
   },
 } satisfies Prisma.LeadSelect;
 
+type DatabaseLeadListRow = Prisma.LeadGetPayload<{
+  select: typeof leadListSelect;
+}>;
+
+function mapDatabaseLeadToListItem(
+  lead: DatabaseLeadListRow,
+): LeadListItem {
+  return {
+    id: lead.id,
+    fullName: lead.fullName,
+    email: lead.email ?? "",
+    phone: lead.phone,
+    interestedCourse: lead.interestedCourse.title,
+    status: statusLabels[lead.status],
+    source: sourceLabels[lead.source],
+    assignedTo: lead.assignedCounselor?.fullName ?? "Unassigned",
+    createdAt: lead.createdAt.toISOString(),
+    nextFollowUpAt: lead.nextFollowUpAt?.toISOString() ?? null,
+  };
+}
+
 /*
  * Builds every filter EXCEPT status.
  *
@@ -246,7 +267,7 @@ function buildBaseWhere(
   };
 }
 
-function buildWhere(
+export function buildLeadListWhere(
   currentUser: Pick<
     AuthenticatedCrmUser,
     "id" | "role"
@@ -271,7 +292,7 @@ function buildWhere(
   };
 }
 
-function buildOrderBy(
+export function buildLeadListOrderBy(
   query: LeadListQuery,
 ): Prisma.LeadOrderByWithRelationInput[] {
   /*
@@ -363,13 +384,13 @@ export async function listLeadPage(
    * Complete filter including status.
    */
   const where =
-    buildWhere(
+    buildLeadListWhere(
       currentUser,
       query,
     );
 
   const orderBy =
-    buildOrderBy(query);
+    buildLeadListOrderBy(query);
 
   /*
    * RepeatableRead gives count,
@@ -481,51 +502,8 @@ export async function listLeadPage(
           count;
       }
 
-      const items:
-        LeadListItem[] =
-        databaseLeads.map(
-          (lead) => ({
-            id: lead.id,
-
-            fullName:
-              lead.fullName,
-
-            email:
-              lead.email ?? "",
-
-            phone:
-              lead.phone,
-
-            interestedCourse:
-              lead
-                .interestedCourse
-                .title,
-
-            status:
-              statusLabels[
-                lead.status
-              ],
-
-            source:
-              sourceLabels[
-                lead.source
-              ],
-
-            assignedTo:
-              lead
-                .assignedCounselor
-                ?.fullName ??
-              "Unassigned",
-
-            createdAt:
-              lead.createdAt.toISOString(),
-
-            nextFollowUpAt:
-              lead.nextFollowUpAt
-                ?.toISOString() ??
-              null,
-          }),
-        );
+      const items: LeadListItem[] =
+        databaseLeads.map(mapDatabaseLeadToListItem);
 
       return {
         items,
@@ -559,4 +537,40 @@ export async function listLeadPage(
           .RepeatableRead,
     },
   );
+}
+
+/*
+ * A hard ceiling on export size — not a business rule, a safety net.
+ * Nothing paginates a CSV export (that would defeat the point of
+ * "export everything matching these filters"), but an unbounded query
+ * is still one bad filter combination away from trying to stream an
+ * enormous file. This project's realistic lead volume is nowhere near
+ * this number; if it ever is, that's a sign the export needs to become
+ * an async/background job instead of a single request.
+ */
+const MAX_EXPORT_ROWS = 20_000;
+
+/**
+ * Every filter this applies (search, status, source, course, and —
+ * critically — counselor scoping for non-admins) comes from the exact
+ * same buildLeadListWhere() used by the paginated table, so an export
+ * can never see a row the table view wouldn't already show that user.
+ * Unlike listLeadPage(), this has no page/skip — CSV export means
+ * "everything matching these filters," not "the current page."
+ */
+export async function listLeadsForExport(
+  currentUser: Pick<AuthenticatedCrmUser, "id" | "role">,
+  query: LeadListQuery,
+): Promise<LeadListItem[]> {
+  const where = buildLeadListWhere(currentUser, query);
+  const orderBy = buildLeadListOrderBy(query);
+
+  const databaseLeads = await prisma.lead.findMany({
+    where,
+    select: leadListSelect,
+    orderBy,
+    take: MAX_EXPORT_ROWS,
+  });
+
+  return databaseLeads.map(mapDatabaseLeadToListItem);
 }

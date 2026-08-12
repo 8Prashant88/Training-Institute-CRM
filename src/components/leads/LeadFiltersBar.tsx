@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, RotateCcw } from "lucide-react";
+import { Download, Plus, RotateCcw } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 
@@ -100,6 +100,9 @@ type LeadFiltersBarProps = {
   onClearFilters: () => void;
 
   onAddLead: () => void;
+
+  /** Points at /api/leads/export with the current filters applied. */
+  exportHref: string;
 };
 
 const sourceOptions: Array<{
@@ -153,6 +156,7 @@ export default function LeadFiltersBar({
   onSortChange,
   onClearFilters,
   onAddLead,
+  exportHref,
 }: LeadFiltersBarProps) {
   const statusPills:
     StatusFilter[] = [
@@ -226,6 +230,30 @@ export default function LeadFiltersBar({
         />
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <a
+            href={exportHref}
+            aria-disabled={disabled}
+            onClick={(event) => {
+              if (disabled) {
+                event.preventDefault();
+              }
+            }}
+          >
+            <Button
+              type="button"
+              variant="outline"
+              disabled={disabled}
+              className="whitespace-nowrap"
+            >
+              <Download
+                aria-hidden="true"
+                className="size-4"
+              />
+
+              Export CSV
+            </Button>
+          </a>
+
           <Button
             onClick={onAddLead}
             disabled={disabled}

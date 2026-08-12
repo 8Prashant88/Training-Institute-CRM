@@ -7,12 +7,14 @@ import LeadStatusBadge from "@/components/LeadStatusBadge";
 import { formatRelativeDate } from "@/lib/format";
 import type { Lead } from "@/types/lead";
 
+/**
+ * `leads` is expected to already be the 5 most recent, sorted newest
+ * first — dashboard-service.ts fetches exactly that with `take: 5` and
+ * `orderBy: { createdAt: "desc" }` rather than this component sorting
+ * and slicing a full lead list handed to it.
+ */
 export default function RecentLeadsList({ leads }: { leads: Lead[] }) {
-  const recentLeads = [...leads]
-    .sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 5);
+  const recentLeads = leads;
 
   return (
     <Card>

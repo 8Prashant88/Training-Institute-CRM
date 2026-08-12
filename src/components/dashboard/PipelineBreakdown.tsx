@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
-import { leadStatusLabels, leadStatuses, type Lead, type LeadStatus } from "@/types/lead";
+import { leadStatusLabels, leadStatuses, type LeadStatus } from "@/types/lead";
 
 const statusColors: Record<LeadStatus, string> = {
   NEW: "#2a78d6",
@@ -10,14 +10,19 @@ const statusColors: Record<LeadStatus, string> = {
   LOST: "#e34948",
 };
 
-export default function PipelineBreakdown({ leads }: { leads: Lead[] }) {
-  const total = leads.length;
+type PipelineBreakdownProps = {
+  statusBreakdown: Record<LeadStatus, number>;
+};
 
+export default function PipelineBreakdown({
+  statusBreakdown,
+}: PipelineBreakdownProps) {
   const counts = leadStatuses.map((status) => ({
     status,
-    count: leads.filter((lead) => lead.status === status).length,
+    count: statusBreakdown[status],
   }));
 
+  const total = counts.reduce((sum, item) => sum + item.count, 0);
   const maxCount = Math.max(1, ...counts.map((item) => item.count));
 
   return (
@@ -30,35 +35,39 @@ export default function PipelineBreakdown({ leads }: { leads: Lead[] }) {
       </CardHeader>
 
       <CardContent>
-        <ul className="grid gap-4">
-          {counts.map(({ status, count }) => {
-            const percentOfTotal = total > 0 ? Math.round((count / total) * 100) : 0;
-            const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
+        {total === 0 ? (
+          <p className="text-sm text-slate-500">No leads yet.</p>
+        ) : (
+          <ul className="grid gap-4">
+            {counts.map(({ status, count }) => {
+              const percentOfTotal = total > 0 ? Math.round((count / total) * 100) : 0;
+              const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
 
-            return (
-              <li key={status}>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium text-slate-700">
-                    {leadStatusLabels[status]}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-slate-500">
-                    {count} · {percentOfTotal}%
-                  </span>
-                </div>
+              return (
+                <li key={status}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium text-slate-700">
+                      {leadStatusLabels[status]}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-slate-500">
+                      {count} · {percentOfTotal}%
+                    </span>
+                  </div>
 
-                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full transition-[width]"
-                    style={{
-                      width: `${barWidth}%`,
-                      backgroundColor: statusColors[status],
-                    }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full transition-[width]"
+                      style={{
+                        width: `${barWidth}%`,
+                        backgroundColor: statusColors[status],
+                      }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );

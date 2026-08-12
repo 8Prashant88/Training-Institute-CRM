@@ -7,13 +7,16 @@ import {
 } from "next/navigation";
 
 import {
+  CalendarCheck,
   GraduationCap,
   PhoneCall,
+  Target,
   UserPlus,
   Users,
 } from "lucide-react";
 
 import CoursePerformance from "@/components/dashboard/CoursePerformance";
+import LeadsBySource from "@/components/dashboard/LeadsBySource";
 import PipelineBreakdown from "@/components/dashboard/PipelineBreakdown";
 import RecentLeadsList from "@/components/dashboard/RecentLeadsList";
 
@@ -50,8 +53,10 @@ export default async function DashboardPage() {
 
   const {
     stats,
-    leads,
-    courses,
+    statusBreakdown,
+    sourceBreakdown,
+    coursePerformance,
+    recentLeads,
   } = dashboard;
 
   return (
@@ -88,7 +93,7 @@ export default async function DashboardPage() {
           Dashboard statistics
         </h2>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <StatCard
             label="Total leads"
             value={
@@ -124,25 +129,46 @@ export default async function DashboardPage() {
             icon={
               GraduationCap
             }
-            description="Active enrollment records"
+            description="Currently active, right now"
+          />
+
+          <StatCard
+            label="Enrolled this month"
+            value={
+              stats.enrollmentsThisMonth
+            }
+            icon={CalendarCheck}
+            description="Conversions since the 1st"
+          />
+
+          <StatCard
+            label="Conversion rate"
+            value={`${stats.conversionRate}%`}
+            icon={Target}
+            description="Enrolled leads, all time"
           />
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <PipelineBreakdown
-          leads={leads}
+          statusBreakdown={statusBreakdown}
         />
 
-        <CoursePerformance
-          courses={courses}
-          leads={leads}
+        <LeadsBySource
+          breakdown={sourceBreakdown}
         />
       </section>
 
-      <RecentLeadsList
-        leads={leads}
-      />
+      <section className="grid gap-6 lg:grid-cols-2">
+        <CoursePerformance
+          rows={coursePerformance}
+        />
+
+        <RecentLeadsList
+          leads={recentLeads}
+        />
+      </section>
     </div>
   );
 }

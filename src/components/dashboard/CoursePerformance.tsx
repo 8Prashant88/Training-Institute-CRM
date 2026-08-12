@@ -5,81 +5,49 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/Card";
-import type { Lead } from "@/types/lead";
 
-type DashboardCourse = {
-  id: string;
-  title: string;
+export type CoursePerformanceRow = {
+  courseId: string;
+  courseTitle: string;
+  leadCount: number;
+  enrolledCount: number;
+  conversionRate: number;
 };
 
 type CoursePerformanceProps = {
-  courses: DashboardCourse[];
-  leads: Lead[];
+  rows: CoursePerformanceRow[];
 };
 
 export default function CoursePerformance({
-  courses,
-  leads,
+  rows,
 }: CoursePerformanceProps) {
-  const rows = courses
-    .map((course) => {
-      const courseLeads = leads.filter(
-        (lead) =>
-          lead.interestedCourse === course.title,
-      );
-
-      const enrolled = courseLeads.filter(
-        (lead) => lead.status === "ENROLLED",
-      ).length;
-
-      const conversion =
-        courseLeads.length > 0
-          ? Math.round(
-              (enrolled / courseLeads.length) * 100,
-            )
-          : 0;
-
-      return {
-        course,
-        leadCount: courseLeads.length,
-        enrolled,
-        conversion,
-      };
-    })
-    .sort((a, b) => b.leadCount - a.leadCount);
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Course performance</CardTitle>
 
         <CardDescription>
-          Interest and lead conversion by active course.
+          Interest and lead conversion by course.
         </CardDescription>
       </CardHeader>
 
       <CardContent>
         {rows.length === 0 ? (
           <p className="text-sm text-slate-500">
-            No active courses found.
+            No leads with an interested course yet.
           </p>
         ) : (
           <ul className="grid gap-4">
             {rows.map(
-              ({
-                course,
-                leadCount,
-                enrolled,
-                conversion,
-              }) => (
-                <li key={course.id}>
+              ({ courseId, courseTitle, leadCount, enrolledCount, conversionRate }) => (
+                <li key={courseId}>
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium text-slate-700">
-                      {course.title}
+                    <span className="truncate font-medium text-slate-700">
+                      {courseTitle}
                     </span>
 
                     <span className="shrink-0 tabular-nums text-slate-500">
-                      {enrolled}/{leadCount} enrolled
+                      {enrolledCount}/{leadCount} enrolled
                     </span>
                   </div>
 
@@ -87,7 +55,7 @@ export default function CoursePerformance({
                     <div
                       className="h-full rounded-full bg-primary-800 transition-[width]"
                       style={{
-                        width: `${conversion}%`,
+                        width: `${conversionRate}%`,
                       }}
                     />
                   </div>

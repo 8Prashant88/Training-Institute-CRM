@@ -93,7 +93,7 @@ function normalizeSearch(value: string) {
   return value.trim().slice(0, MAX_SEARCH_LENGTH);
 }
 
-function createLeadsHref(query: LeadListQuery) {
+function buildLeadsSearchParams(query: LeadListQuery) {
   const params = new URLSearchParams();
 
   if (query.search) {
@@ -132,9 +132,31 @@ function createLeadsHref(query: LeadListQuery) {
     params.set("page", String(query.page));
   }
 
-  const search = params.toString();
+  return params;
+}
+
+function createLeadsHref(query: LeadListQuery) {
+  const search = buildLeadsSearchParams(query).toString();
 
   return search ? `/dashboard/leads?${search}` : "/dashboard/leads";
+}
+
+/*
+ * CSV export intentionally ignores `page` — "export" means every row
+ * matching the current filters, not just the page currently on
+ * screen — so it's left out even though buildLeadsSearchParams()
+ * would otherwise include it.
+ */
+function createLeadsExportHref(query: LeadListQuery) {
+  const params = buildLeadsSearchParams(query);
+
+  params.delete("page");
+
+  const search = params.toString();
+
+  return search
+    ? `/api/leads/export?${search}`
+    : "/api/leads/export";
 }
 
 export default function LeadsWorkspace({
@@ -544,6 +566,7 @@ export default function LeadsWorkspace({
         courses={courseFilterOptions}
         counselors={counselorFilterOptions}
         canManageAssignments={canManageAssignments}
+        exportHref={createLeadsExportHref(query)}
         disabled={controlsDisabled}
         onSearchChange={setSearchValue}
         onStatusChange={handleStatusChange}

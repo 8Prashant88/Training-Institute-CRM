@@ -16,6 +16,7 @@ export type EnrollmentErrorCode =
   | "ALREADY_ENROLLED"
   | "BATCH_NOT_FOUND"
   | "BATCH_UNAVAILABLE"
+  | "BATCH_ENDED"
   | "BATCH_FULL";
 
 export class EnrollmentServiceError extends Error {
@@ -119,6 +120,7 @@ export async function enrollLead(
             courseId: true,
             capacity: true,
             status: true,
+            endDate: true,
 
             course: {
               select: {
@@ -143,6 +145,39 @@ export async function enrollLead(
         throw new EnrollmentServiceError(
           "BATCH_UNAVAILABLE",
           "The selected batch is not accepting enrollments.",
+        );
+      }
+
+      /*
+       * Application rule: `status` should already say UPCOMING/ONGOING
+       * for a schedule that hasn't ended. Database rule: check the date
+       * itself too, because an admin can forget to mark a batch
+       * COMPLETED after its endDate passes, and this transaction is the
+       * last line of defense before an enrollment is created against a
+       * course that has already finished.
+       *
+       * `endDate` is stored as a date-only column, so Prisma returns it
+       * as midnight UTC on that day. Comparing it directly against "now"
+       * would treat the batch's own last day as already over; the
+       * batch's final day should still accept enrollments through its
+       * end, so the comparison is against the end of that UTC day.
+       */
+      const endOfBatchDay = new Date(
+        Date.UTC(
+          batch.endDate.getUTCFullYear(),
+          batch.endDate.getUTCMonth(),
+          batch.endDate.getUTCDate(),
+          23,
+          59,
+          59,
+          999,
+        ),
+      );
+
+      if (endOfBatchDay < new Date()) {
+        throw new EnrollmentServiceError(
+          "BATCH_ENDED",
+          "The selected batch has already ended and cannot accept new enrollments.",
         );
       }
 

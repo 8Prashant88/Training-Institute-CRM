@@ -8,6 +8,7 @@ import type { BatchStatus } from "@/generated/prisma/client";
 import { formatDate } from "@/lib/format";
 import { listBatches } from "@/services/batch-service";
 import CreateBatchForm from "@/components/batches/CreateBatchForm";
+import BatchManagementControls from "@/components/batches/BatchManagementControls";
 import { listActiveCourses } from "@/services/course-service";
 import {
   isAdmin,
@@ -209,7 +210,7 @@ const canManageBatches =
                     <span className="text-slate-500">Occupancy</span>
 
                     <span className="font-medium tabular-nums text-slate-800">
-                      {batch.enrolledCount}/{batch.capacity}
+                      {batch.enrolledCount} / {batch.capacity} seats
                       {isFull ? " · Full" : ""}
                     </span>
                   </div>
@@ -228,9 +229,17 @@ const canManageBatches =
                   <p className="mt-1.5 text-right text-xs text-slate-400">
                     {occupancy}% occupied
                   </p>
-                  
-       
                 </div>
+
+                {canManageBatches && (
+                  <BatchManagementControls
+                    batchId={batch.id}
+                    title={batch.title}
+                    capacity={batch.capacity}
+                    enrolledCount={batch.enrolledCount}
+                    status={batch.status}
+                  />
+                )}
               </Card>
             );
           })}

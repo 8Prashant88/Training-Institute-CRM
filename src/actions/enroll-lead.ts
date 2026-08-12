@@ -241,6 +241,7 @@ export async function submitEnrollment(
 
         case "BATCH_NOT_FOUND":
         case "BATCH_UNAVAILABLE":
+        case "BATCH_ENDED":
         case "BATCH_FULL":
           return {
             success: false,

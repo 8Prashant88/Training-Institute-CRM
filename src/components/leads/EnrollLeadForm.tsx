@@ -289,8 +289,8 @@ export default function EnrollLeadForm({
               </dt>
 
               <dd className="mt-1 text-slate-700">
-                {selectedBatch.enrolledCount}/
-                {selectedBatch.capacity}
+                {selectedBatch.enrolledCount} /{" "}
+                {selectedBatch.capacity} seats
               </dd>
             </div>
 

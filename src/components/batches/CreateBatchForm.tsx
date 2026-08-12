@@ -62,6 +62,8 @@ export default function CreateBatchForm({
 
   const submissionLockRef = useRef(false);
 
+  const todayDateValue = new Date().toISOString().slice(0, 10);
+
   function updateField(
     field: keyof BatchFormValues,
     value: string,
@@ -283,6 +285,7 @@ export default function CreateBatchForm({
             id="batch-start-date"
             type="date"
             value={values.startDate}
+            min={todayDateValue}
             disabled={isSubmitting}
             invalid={Boolean(
               fieldErrors.startDate,

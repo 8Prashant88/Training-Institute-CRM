@@ -28,6 +28,28 @@ function parseDate(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
+/*
+ * "On or after today" compares UTC calendar day, not exact instant —
+ * consistent with how follow-up dates are validated elsewhere in this
+ * project (see isFollowUpDateOnOrAfterToday in lead-status-rules.ts).
+ * A brand-new batch should not be schedulable to have already started.
+ */
+function isDateOnOrAfterToday(date: Date, now: Date = new Date()): boolean {
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+
+  const candidateDay = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+  );
+
+  return candidateDay >= today;
+}
+
 const createBatchSchema = z
   .object({
     courseId: z.uuid({
@@ -69,6 +91,10 @@ const createBatchSchema = z
   .refine((data) => parseDate(data.endDate) > parseDate(data.startDate), {
     path: ["endDate"],
     error: "The end date must be after the start date.",
+  })
+  .refine((data) => isDateOnOrAfterToday(parseDate(data.startDate)), {
+    path: ["startDate"],
+    error: "The start date cannot be in the past.",
   });
 
 export type CreateBatchActionInput = z.infer<typeof createBatchSchema>;

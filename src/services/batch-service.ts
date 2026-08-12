@@ -3,8 +3,69 @@ import "server-only";
 import {
   BatchStatus,
   EnrollmentStatus,
+  Prisma,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  isBatchLocked,
+  isBatchStatusTransitionAllowed,
+} from "@/lib/batch-status-rules";
+
+export type BatchErrorCode =
+  | "BATCH_NOT_FOUND"
+  | "INVALID_TRANSITION"
+  | "BATCH_LOCKED"
+  | "CAPACITY_BELOW_ENROLLED";
+
+export class BatchServiceError extends Error {
+  readonly code: BatchErrorCode;
+
+  constructor(code: BatchErrorCode, message: string) {
+    super(message);
+
+    this.name = "BatchServiceError";
+    this.code = code;
+  }
+}
+
+const batchListItemSelect = {
+  id: true,
+  title: true,
+  capacity: true,
+  startDate: true,
+  endDate: true,
+  status: true,
+
+  course: {
+    select: {
+      title: true,
+    },
+  },
+} as const;
+
+function toBatchListItem(
+  batch: {
+    id: string;
+    title: string;
+    capacity: number;
+    startDate: Date;
+    endDate: Date;
+    status: BatchStatus;
+    course: { title: string };
+  },
+  enrolledCount: number,
+): BatchListItem {
+  return {
+    id: batch.id,
+    title: batch.title,
+    courseTitle: batch.course.title,
+    capacity: batch.capacity,
+    enrolledCount,
+    startDate: batch.startDate.toISOString(),
+    endDate: batch.endDate.toISOString(),
+    status: batch.status,
+  };
+}
 
 export type BatchListItem = {
   id: string;
@@ -209,4 +270,159 @@ export async function listEnrollmentBatchOptions(): Promise<
       (batch) =>
         batch.remainingSeats > 0,
     );
+}
+
+export type UpdateBatchStatusInput = {
+  batchId: string;
+  status: BatchStatus;
+};
+
+/**
+ * Moves a batch to a new status, but only along an allowed edge of the
+ * lifecycle graph in batch-status-rules.ts. Re-checking the current
+ * status inside the same transaction that performs the write (rather
+ * than trusting a value read moments earlier by the caller) closes the
+ * same kind of race window enrollLead() closes for capacity.
+ */
+export async function updateBatchStatus(
+  input: UpdateBatchStatusInput,
+): Promise<BatchListItem> {
+  return prisma.$transaction(async (transaction) => {
+    const batch = await transaction.batch.findUnique({
+      where: {
+        id: input.batchId,
+      },
+
+      select: {
+        status: true,
+      },
+    });
+
+    if (!batch) {
+      throw new BatchServiceError(
+        "BATCH_NOT_FOUND",
+        "The batch was not found.",
+      );
+    }
+
+    if (
+      !isBatchStatusTransitionAllowed(batch.status, input.status)
+    ) {
+      throw new BatchServiceError(
+        "INVALID_TRANSITION",
+        `A batch cannot move from ${batch.status} to ${input.status}.`,
+      );
+    }
+
+    const updated = await transaction.batch.update({
+      where: {
+        id: input.batchId,
+      },
+
+      data: {
+        status: input.status,
+      },
+
+      select: {
+        ...batchListItemSelect,
+
+        _count: {
+          select: {
+            enrollments: {
+              where: {
+                status: {
+                  not: EnrollmentStatus.CANCELLED,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return toBatchListItem(updated, updated._count.enrollments);
+  });
+}
+
+export type UpdateBatchDetailsInput = {
+  batchId: string;
+  title: string;
+  capacity: number;
+};
+
+/**
+ * Updates a batch's title and capacity. Capacity can never drop below
+ * the number of currently active (non-cancelled) enrollments, and a
+ * completed or cancelled batch can no longer be edited at all — its
+ * numbers are history at that point, not a live seat count. Serializable
+ * isolation closes the same race as enrollLead(): without it, an admin
+ * lowering capacity and a counselor enrolling the last seat could both
+ * read a stale enrolled count and each believe their action is safe.
+ */
+export async function updateBatchDetails(
+  input: UpdateBatchDetailsInput,
+): Promise<BatchListItem> {
+  return prisma.$transaction(
+    async (transaction) => {
+      const batch = await transaction.batch.findUnique({
+        where: {
+          id: input.batchId,
+        },
+
+        select: {
+          status: true,
+        },
+      });
+
+      if (!batch) {
+        throw new BatchServiceError(
+          "BATCH_NOT_FOUND",
+          "The batch was not found.",
+        );
+      }
+
+      if (isBatchLocked(batch.status)) {
+        throw new BatchServiceError(
+          "BATCH_LOCKED",
+          "A completed or cancelled batch can no longer be edited.",
+        );
+      }
+
+      const activeEnrollmentCount =
+        await transaction.enrollment.count({
+          where: {
+            batchId: input.batchId,
+
+            status: {
+              not: EnrollmentStatus.CANCELLED,
+            },
+          },
+        });
+
+      if (input.capacity < activeEnrollmentCount) {
+        throw new BatchServiceError(
+          "CAPACITY_BELOW_ENROLLED",
+          `Capacity cannot be lower than the ${activeEnrollmentCount} lead(s) already enrolled in this batch.`,
+        );
+      }
+
+      const updated = await transaction.batch.update({
+        where: {
+          id: input.batchId,
+        },
+
+        data: {
+          title: input.title.trim(),
+          capacity: input.capacity,
+        },
+
+        select: batchListItemSelect,
+      });
+
+      return toBatchListItem(updated, activeEnrollmentCount);
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    },
+  );
 }

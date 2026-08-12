@@ -562,3 +562,29 @@
 - A Prisma-generated client has separate entry points for server and browser code; only the browser-safe one should be imported into files that a Client Component might load.
 - Clearing a framework's build cache while its dev server is running can take the server down; the running process has to be restarted, not just the cache rebuilt.
 - Adding a new view alongside an existing, already-tested one is lower risk than rewriting the existing view to make room for it.
+
+## Day 16 — Courses, Batches, and Enrollment Rules
+
+### What I completed
+
+- Added full course management: admins can create, edit, activate, and deactivate courses; the courses page now shows inactive courses and a per-course batch count for admins, while counselors still see only active ones.
+- Made the activate/deactivate action take only a course ID and compute the new status itself from the current database value, instead of trusting a status value sent by the client.
+- Added a shared `batch-status-rules.ts` module (mirroring the existing `lead-status-rules.ts`) defining the batch lifecycle: `UPCOMING -> ONGOING -> COMPLETED`, with `CANCELLED` reachable from `UPCOMING` or `ONGOING` but never left.
+- Added `updateBatchStatus` to batch-service, which re-reads a batch's current status inside the same transaction that changes it and rejects any move not listed in the transition table.
+- Added `updateBatchDetails` to batch-service for editing a batch's title and capacity, run under Serializable isolation, which blocks lowering capacity below the number of currently active enrollments and blocks editing a `COMPLETED` or `CANCELLED` batch at all.
+- Added admin-only UI controls on the batches page: inline title/capacity editing and status-transition buttons that only ever show a batch's actually-allowed next statuses, with a confirmation dialog before cancelling.
+- Hardened `enrollLead()` with a second, independent check: even if a batch's `status` field is stale (still `UPCOMING` after its `endDate` has passed), the transaction now rejects enrollment once the batch's end-of-day (UTC) has passed.
+- Added a start-date rule to batch creation: a new batch's start date can no longer be in the past.
+- Wrote a standalone verification script (`scripts/day16-verify-batch-rules.ts`) that exercises the real dev database directly — capacity exactly reached, a cancelled batch, a batch with stale-status-but-past dates, a lead enrolled twice (both the application check and the raw database unique-constraint), and two concurrent enrollment attempts for a single remaining seat. All seven checks passed, and the script cleans up every row it creates.
+- Ran TypeScript, ESLint, and a production build; smoke-tested the running dev server for runtime errors on public and dashboard routes.
+
+### What I learned
+
+- An application rule and a database rule protect the same fact for different reasons: the application rule (`status !== ACTIVE` check, `enrolledCount >= capacity` check) exists to produce a friendly, specific error message; the database rule (a unique constraint, a transaction that re-reads state before writing) exists as the last line of defense if the application rule is ever missing, buggy, or bypassed. Neither replaces the other.
+- A status field and the real-world dates it's supposed to reflect can drift apart — nothing forces an admin to mark a batch `COMPLETED` the moment its `endDate` passes. Code that only trusts the status field is trusting a field a human might have forgotten to update; the enrollment transaction now checks the actual date too.
+- A lifecycle with irreversible states (like `CANCELLED` or `COMPLETED` for a batch) is easiest to enforce correctly as one shared table of allowed edges, read by both the server-side write and the client-side buttons that offer choices — the same lesson from Day 15's lead-status rules, applied to a different entity.
+- Re-checking a value inside the same transaction that writes it (current status before a status change, current enrolled count before a capacity change) closes a race window that checking it moments earlier, outside the transaction, cannot — a concurrent second request could always land in that gap.
+- A toggle action is safer designed as "flip whatever the current value already is" than as "set the value to whatever the client sends," because the second form lets a tampered request set an arbitrary target value instead of only ever the one legitimate next state.
+- A date stored as `@db.Date` in PostgreSQL comes back from Prisma as midnight UTC on that day. Comparing it directly against "now" would treat a batch's own final day as already over; the correct comparison is against the end of that day, not its start.
+- A file that imports Next's real `server-only` package cannot be imported into a plain Node/tsx script — the package throws unconditionally outside Next's own bundler, and there is no `--conditions` flag that changes that from a bare `require()`. Verifying business rules against a real database from a standalone script means either duplicating the transaction logic, or driving the actual HTTP/Server Action layer — there's no way to `import` a server-only service file directly into a script.
+- A destructive-looking verification step (creating and deleting real database rows) is safe to run against a shared dev database if every row it creates is clearly tagged, every code path that creates a row is matched by a cleanup path in a `finally` block, and the script sweeps for its own leftover rows before it starts — protecting against a previous run that crashed before cleanup ran.

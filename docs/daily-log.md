@@ -588,3 +588,24 @@
 - A date stored as `@db.Date` in PostgreSQL comes back from Prisma as midnight UTC on that day. Comparing it directly against "now" would treat a batch's own final day as already over; the correct comparison is against the end of that day, not its start.
 - A file that imports Next's real `server-only` package cannot be imported into a plain Node/tsx script — the package throws unconditionally outside Next's own bundler, and there is no `--conditions` flag that changes that from a bare `require()`. Verifying business rules against a real database from a standalone script means either duplicating the transaction logic, or driving the actual HTTP/Server Action layer — there's no way to `import` a server-only service file directly into a script.
 - A destructive-looking verification step (creating and deleting real database rows) is safe to run against a shared dev database if every row it creates is clearly tagged, every code path that creates a row is matched by a cleanup path in a `finally` block, and the script sweeps for its own leftover rows before it starts — protecting against a previous run that crashed before cleanup ran.
+
+## Day 17 — Dashboard Metrics and CSV Export
+
+### What I completed
+
+- Fixed a production deploy failure live since Day 9: `prisma.config.ts` required `DIRECT_URL` just to load, which broke `npm install` (via the `prisma generate` postinstall step) on any environment missing it. Reproduced with a clean clone and no env vars, then fixed. Also found `DATABASE_URL` was never added to Vercel at all.
+- Found the dashboard loaded every lead into memory and filtered it in JS across three components — the same anti-pattern Day 14 fixed for the leads table, just relocated. Rewrote `dashboard-service.ts` around `count()`/`groupBy()` aggregation; the only row-level fetch left is the 5-row recent-leads list.
+- Added the missing Day 17 metrics: conversion rate, enrollments this month, and leads by source (new `LeadsBySource` component).
+- Added CSV export as a Route Handler (`/api/leads/export`), not a Server Action, since it's a file download, not a form submission. Reuses the leads table's own filter/authorization function so the export can never see more than that user's table view already shows.
+- Wrote `src/lib/csv.ts` with proper quoting and a formula-injection guard (a field starting with `=`/`+`/`-`/`@` gets a leading apostrophe).
+- Wrote `scripts/verify-dashboard-metrics.ts`: CSV escaping checks plus dashboard aggregation checked against a hand-built, known data set (not just "the query ran"). 12/12 passed; re-ran yesterday's script too as a regression check.
+
+### What I learned
+
+- A config file that eagerly validates a variable it doesn't actually need for every command can turn "optional value missing" into "install fails outright."
+- Reproducing a deploy bug locally (clean clone, no env vars) is what makes a fix trustworthy instead of a guess.
+- `.env` never leaves the machine — a hosting platform needs its own copies of every variable, added directly in its dashboard.
+- "Active enrollments" (current headcount) and "enrollments this month" (a historical conversion count) are genuinely different metrics; conflating them makes one of the two wrong.
+- A Route Handler is the right tool when the response is a real file with its own headers, not a page render or a Server Action result.
+- CSV has its own injection class — formula injection — that doesn't exist anywhere else in this app's data flow.
+- A verification check that confirms an exact hand-computed number catches bugs that "the query didn't error" never would.

@@ -3,12 +3,23 @@ import "server-only";
 import {
   BatchStatus,
   EnrollmentStatus,
+  LeadActivityType,
   LeadStatus,
   Prisma,
   UserRole,
 } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+
+/**
+ * A cancelled or dropped seat no longer counts against a batch's
+ * capacity — both free the seat for someone else. This filter is the
+ * single definition of "currently occupies a seat"; every capacity
+ * count in this file and batch-service.ts uses it.
+ */
+export const OCCUPIES_SEAT_FILTER = {
+  notIn: [EnrollmentStatus.CANCELLED, EnrollmentStatus.DROPPED],
+};
 
 export type EnrollmentErrorCode =
   | "LEAD_NOT_FOUND"
@@ -17,7 +28,9 @@ export type EnrollmentErrorCode =
   | "BATCH_NOT_FOUND"
   | "BATCH_UNAVAILABLE"
   | "BATCH_ENDED"
-  | "BATCH_FULL";
+  | "BATCH_FULL"
+  | "ENROLLMENT_NOT_FOUND"
+  | "NOT_ACTIVE";
 
 export class EnrollmentServiceError extends Error {
   readonly code: EnrollmentErrorCode;
@@ -71,7 +84,22 @@ export async function enrollLead(
             interestedCourseId: true,
             assignedCounselorId: true,
 
-            enrollment: {
+            /*
+             * A lead can have many historical Enrollment rows now (drop
+             * and re-enroll, or a second course after completing the
+             * first), so "already enrolled" means "has an ACTIVE one
+             * right now" — not "has ever had one". The database backs
+             * this same rule with a partial unique index on
+             * (leadId) WHERE status = 'ACTIVE', so this application
+             * check and that index protect the same fact for the two
+             * usual reasons: a friendly message here, a guarantee that
+             * holds even under a concurrent write there.
+             */
+            enrollments: {
+              where: {
+                status: EnrollmentStatus.ACTIVE,
+              },
+
               select: {
                 id: true,
               },
@@ -98,13 +126,10 @@ export async function enrollLead(
         );
       }
 
-      if (
-        lead.enrollment ||
-        lead.status === LeadStatus.ENROLLED
-      ) {
+      if (lead.enrollments.length > 0) {
         throw new EnrollmentServiceError(
           "ALREADY_ENROLLED",
-          "This lead already has an enrollment.",
+          "This lead already has an active enrollment.",
         );
       }
 
@@ -185,10 +210,7 @@ export async function enrollLead(
         await transaction.enrollment.count({
           where: {
             batchId: batch.id,
-
-            status: {
-              not: EnrollmentStatus.CANCELLED,
-            },
+            status: OCCUPIES_SEAT_FILTER,
           },
         });
 
@@ -253,4 +275,220 @@ export async function enrollLead(
           .Serializable,
     },
   );
+}
+
+export type EnrollmentSummary = {
+  id: string;
+  leadId: string;
+  batchId: string;
+  batchTitle: string;
+  courseTitle: string;
+  enrolledAt: string;
+  status: EnrollmentStatus;
+  droppedAt: string | null;
+  dropReason: string | null;
+};
+
+type ManageEnrollmentActor = {
+  id: string;
+  role: UserRole;
+};
+
+async function loadManageableEnrollment(
+  transaction: Prisma.TransactionClient,
+  enrollmentId: string,
+  actor: ManageEnrollmentActor,
+) {
+  const enrollment = await transaction.enrollment.findUnique({
+    where: {
+      id: enrollmentId,
+    },
+
+    select: {
+      id: true,
+      leadId: true,
+      batchId: true,
+      status: true,
+      enrolledAt: true,
+
+      lead: {
+        select: {
+          assignedCounselorId: true,
+        },
+      },
+
+      batch: {
+        select: {
+          title: true,
+
+          course: {
+            select: {
+              title: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!enrollment) {
+    throw new EnrollmentServiceError(
+      "ENROLLMENT_NOT_FOUND",
+      "The enrollment was not found.",
+    );
+  }
+
+  const canManage =
+    actor.role === UserRole.ADMIN ||
+    enrollment.lead.assignedCounselorId === actor.id;
+
+  if (!canManage) {
+    throw new EnrollmentServiceError(
+      "FORBIDDEN",
+      "You are not authorized to manage this enrollment.",
+    );
+  }
+
+  if (enrollment.status !== EnrollmentStatus.ACTIVE) {
+    throw new EnrollmentServiceError(
+      "NOT_ACTIVE",
+      "Only an active enrollment can be updated this way.",
+    );
+  }
+
+  return enrollment;
+}
+
+export type DropEnrollmentInput = {
+  enrollmentId: string;
+  reason?: string;
+  actor: ManageEnrollmentActor;
+};
+
+/**
+ * Marks an active enrollment as DROPPED and frees its seat. Because
+ * dropping is a pipeline event as much as an enrollment event, the
+ * lead moves back to FOLLOW_UP (from ENROLLED, which is the only
+ * status an actively-enrolled lead can be in) so a counselor sees it
+ * again as something to act on, and the move is written to the same
+ * LeadActivity audit trail as every other status change.
+ */
+export async function dropEnrollment(
+  input: DropEnrollmentInput,
+): Promise<EnrollmentDetails> {
+  return prisma.$transaction(async (transaction) => {
+    const enrollment = await loadManageableEnrollment(
+      transaction,
+      input.enrollmentId,
+      input.actor,
+    );
+
+    const droppedAt = new Date();
+    const trimmedReason = input.reason?.trim() || null;
+
+    const updated = await transaction.enrollment.update({
+      where: {
+        id: enrollment.id,
+      },
+
+      data: {
+        status: EnrollmentStatus.DROPPED,
+        droppedAt,
+        dropReason: trimmedReason,
+      },
+
+      select: {
+        id: true,
+        leadId: true,
+        batchId: true,
+        enrolledAt: true,
+        status: true,
+      },
+    });
+
+    await transaction.lead.update({
+      where: {
+        id: enrollment.leadId,
+      },
+
+      data: {
+        status: LeadStatus.FOLLOW_UP,
+      },
+    });
+
+    await transaction.leadActivity.create({
+      data: {
+        leadId: enrollment.leadId,
+        type: LeadActivityType.STATUS_CHANGE,
+        fromStatus: LeadStatus.ENROLLED,
+        toStatus: LeadStatus.FOLLOW_UP,
+        changedById: input.actor.id,
+
+        note: trimmedReason
+          ? `Dropped from ${enrollment.batch.title}: ${trimmedReason}`
+          : `Dropped from ${enrollment.batch.title}.`,
+      },
+    });
+
+    return {
+      id: updated.id,
+      leadId: updated.leadId,
+      batchId: updated.batchId,
+      batchTitle: enrollment.batch.title,
+      courseTitle: enrollment.batch.course.title,
+      enrolledAt: updated.enrolledAt.toISOString(),
+      status: updated.status,
+    };
+  });
+}
+
+export type CompleteEnrollmentInput = {
+  enrollmentId: string;
+  actor: ManageEnrollmentActor;
+};
+
+/**
+ * Marks an active enrollment as COMPLETED. The lead's status stays
+ * ENROLLED — completion is a success outcome, not something that
+ * needs to reopen the pipeline — so no LeadActivity entry is written;
+ * the Enrollment row itself (status + updatedAt) is that record.
+ */
+export async function completeEnrollment(
+  input: CompleteEnrollmentInput,
+): Promise<EnrollmentDetails> {
+  return prisma.$transaction(async (transaction) => {
+    const enrollment = await loadManageableEnrollment(
+      transaction,
+      input.enrollmentId,
+      input.actor,
+    );
+
+    const updated = await transaction.enrollment.update({
+      where: {
+        id: enrollment.id,
+      },
+
+      data: {
+        status: EnrollmentStatus.COMPLETED,
+      },
+
+      select: {
+        id: true,
+        leadId: true,
+        batchId: true,
+        enrolledAt: true,
+        status: true,
+      },
+    });
+
+    return {
+      id: updated.id,
+      leadId: updated.leadId,
+      batchId: updated.batchId,
+      batchTitle: enrollment.batch.title,
+      courseTitle: enrollment.batch.course.title,
+      enrolledAt: updated.enrolledAt.toISOString(),
+      status: updated.status,
+    };
+  });
 }

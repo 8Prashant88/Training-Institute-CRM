@@ -261,9 +261,10 @@ async function main() {
 
   await prisma.enrollment.upsert({
     where: {
-      leadId: enrolledLead.id,
+      id: ids.enrollment,
     },
     update: {
+      leadId: enrolledLead.id,
       batchId: fullStackBatch.id,
       status: EnrollmentStatus.ACTIVE,
     },

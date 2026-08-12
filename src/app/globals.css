@@ -65,6 +65,18 @@
   }
 }
 
+/*
+ * Every Tailwind spacing, sizing, and font-size utility here is
+ * rem-based, so shrinking the root font-size is a single, systemic
+ * "make everything a little more compact" lever instead of a change
+ * repeated across every component's padding, height, and text classes.
+ * 14px keeps the interface comfortably readable while noticeably
+ * tightening a dashboard meant to be scanned, not read like a document.
+ */
+html {
+  font-size: 87.5%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

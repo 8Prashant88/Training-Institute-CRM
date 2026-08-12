@@ -9,18 +9,20 @@ import {
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
+  CheckCircle2,
   GraduationCap,
+  UserX,
   Users,
 } from "lucide-react";
 
 import { submitEnrollment } from "@/actions/enroll-lead";
+import { submitCompleteEnrollment } from "@/actions/complete-enrollment";
+import { submitDropEnrollment } from "@/actions/drop-enrollment";
 import Button from "@/components/ui/Button";
-import { Select } from "@/components/ui/Input";
+import Dialog from "@/components/ui/Dialog";
+import { Select, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { formatDate } from "@/lib/format";
-import type {
-  LeadStatus,
-} from "@/types/lead";
 import type {
   BatchStatus,
 } from "@/generated/prisma/client";
@@ -38,19 +40,268 @@ type EnrollmentBatchOption = {
   status: BatchStatus;
 };
 
+type CurrentEnrollment = {
+  id: string;
+  batchTitle: string;
+  courseTitle: string;
+  enrolledAt: string;
+};
+
 type EnrollLeadFormProps = {
   leadId: string;
   leadName: string;
-  currentStatus: LeadStatus;
+  currentEnrollment: CurrentEnrollment | null;
   batches: EnrollmentBatchOption[];
 };
 
 export default function EnrollLeadForm({
   leadId,
   leadName,
-  currentStatus,
+  currentEnrollment,
   batches,
 }: EnrollLeadFormProps) {
+  if (currentEnrollment) {
+    return (
+      <ActiveEnrollmentCard
+        leadName={leadName}
+        enrollment={currentEnrollment}
+      />
+    );
+  }
+
+  return (
+    <EnrollmentPickerForm
+      leadId={leadId}
+      leadName={leadName}
+      batches={batches}
+    />
+  );
+}
+
+function ActiveEnrollmentCard({
+  leadName,
+  enrollment,
+}: {
+  leadName: string;
+  enrollment: CurrentEnrollment;
+}) {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [isDropDialogOpen, setIsDropDialogOpen] = useState(false);
+  const [isDropping, setIsDropping] = useState(false);
+  const [dropReason, setDropReason] = useState("");
+
+  const actionLockRef = useRef(false);
+
+  async function handleComplete() {
+    if (actionLockRef.current) {
+      return;
+    }
+
+    actionLockRef.current = true;
+    setIsCompleting(true);
+
+    try {
+      const result = await submitCompleteEnrollment({
+        enrollmentId: enrollment.id,
+      });
+
+      if (!result.success) {
+        toast({
+          variant: "error",
+          title: "Not updated",
+          description: result.message,
+        });
+
+        return;
+      }
+
+      toast({
+        variant: "success",
+        title: "Enrollment completed",
+        description: `${leadName} was marked as completed.`,
+      });
+
+      router.refresh();
+    } catch (error) {
+      console.error("Complete enrollment failed", error);
+
+      toast({
+        variant: "error",
+        title: "Not updated",
+        description: "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      actionLockRef.current = false;
+      setIsCompleting(false);
+    }
+  }
+
+  async function handleDrop() {
+    if (actionLockRef.current) {
+      return;
+    }
+
+    actionLockRef.current = true;
+    setIsDropping(true);
+
+    try {
+      const result = await submitDropEnrollment({
+        enrollmentId: enrollment.id,
+        reason: dropReason.trim() || undefined,
+      });
+
+      if (!result.success) {
+        toast({
+          variant: "error",
+          title: "Not updated",
+          description: result.message,
+        });
+
+        return;
+      }
+
+      setIsDropDialogOpen(false);
+      setDropReason("");
+
+      toast({
+        variant: "success",
+        title: "Student marked as dropped",
+        description: `${leadName} was moved back to Follow-up so a counselor can re-engage them.`,
+      });
+
+      router.refresh();
+    } catch (error) {
+      console.error("Drop enrollment failed", error);
+
+      toast({
+        variant: "error",
+        title: "Not updated",
+        description: "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      actionLockRef.current = false;
+      setIsDropping(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-green-200 bg-green-50 p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
+          <GraduationCap aria-hidden="true" className="size-5" />
+        </span>
+
+        <div className="min-w-0">
+          <h2 className="font-semibold text-green-900">
+            Currently enrolled
+          </h2>
+
+          <p className="mt-1 text-sm leading-6 text-green-800">
+            {leadName} is active in{" "}
+            <strong>{enrollment.batchTitle}</strong> (
+            {enrollment.courseTitle}), enrolled{" "}
+            {formatDate(enrollment.enrolledAt)}.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          variant="danger"
+          size="sm"
+          onClick={() => setIsDropDialogOpen(true)}
+        >
+          <UserX aria-hidden="true" className="size-4" />
+          Mark dropped
+        </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          isLoading={isCompleting}
+          onClick={() => void handleComplete()}
+        >
+          <CheckCircle2 aria-hidden="true" className="size-4" />
+          {isCompleting ? "Saving..." : "Mark completed"}
+        </Button>
+      </div>
+
+      <Dialog
+        open={isDropDialogOpen}
+        onClose={() => {
+          if (!isDropping) {
+            setIsDropDialogOpen(false);
+          }
+        }}
+        titleId="drop-enrollment-title"
+      >
+        <h2
+          id="drop-enrollment-title"
+          className="text-xl font-semibold text-primary-900"
+        >
+          Mark {leadName} as dropped?
+        </h2>
+
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This frees their seat in {enrollment.batchTitle} for another
+          student and moves {leadName} back into the Follow-up pipeline so a
+          counselor can decide whether to re-engage them.
+        </p>
+
+        <div className="mt-5">
+          <label
+            htmlFor="drop-reason"
+            className="mb-1.5 block text-sm font-medium text-slate-700"
+          >
+            Reason (optional)
+          </label>
+
+          <Textarea
+            id="drop-reason"
+            rows={3}
+            maxLength={500}
+            value={dropReason}
+            disabled={isDropping}
+            placeholder="e.g. Relocated, scheduling conflict, switching courses..."
+            onChange={(event) => setDropReason(event.target.value)}
+          />
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            disabled={isDropping}
+            onClick={() => setIsDropDialogOpen(false)}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            variant="danger"
+            isLoading={isDropping}
+            onClick={() => void handleDrop()}
+          >
+            {isDropping ? "Saving..." : "Mark dropped"}
+          </Button>
+        </div>
+      </Dialog>
+    </section>
+  );
+}
+
+function EnrollmentPickerForm({
+  leadId,
+  leadName,
+  batches,
+}: {
+  leadId: string;
+  leadName: string;
+  batches: EnrollmentBatchOption[];
+}) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -76,18 +327,12 @@ export default function EnrollLeadForm({
     [batchId, batches],
   );
 
-  const isAlreadyEnrolled =
-    currentStatus === "ENROLLED";
-
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
-    if (
-      submissionLockRef.current ||
-      isAlreadyEnrolled
-    ) {
+    if (submissionLockRef.current) {
       return;
     }
 
@@ -144,33 +389,6 @@ export default function EnrollLeadForm({
       submissionLockRef.current = false;
       setIsSubmitting(false);
     }
-  }
-
-  if (isAlreadyEnrolled) {
-    return (
-      <section className="rounded-xl border border-green-200 bg-green-50 p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
-            <GraduationCap
-              aria-hidden="true"
-              className="size-5"
-            />
-          </span>
-
-          <div>
-            <h2 className="font-semibold text-green-900">
-              Enrollment completed
-            </h2>
-
-            <p className="mt-1 text-sm leading-6 text-green-800">
-              {leadName} already has an
-              enrollment and cannot be enrolled
-              twice.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
   }
 
   return (

@@ -6,8 +6,11 @@ import {
   redirect,
 } from "next/navigation";
 
+import LeadFollowUpsView from "@/components/leads/LeadFollowUpsView";
 import LeadPipelineBoard from "@/components/leads/LeadPipelineBoard";
-import LeadsViewSwitcher from "@/components/leads/LeadsViewSwitcher";
+import LeadsViewSwitcher, {
+  type LeadsViewMode,
+} from "@/components/leads/LeadsViewSwitcher";
 import LeadsWorkspace from "@/components/leads/LeadsWorkspace";
 
 import {
@@ -39,6 +42,10 @@ import {
 } from "@/services/lead-pipeline-service";
 
 import {
+  listLeadFollowUps,
+} from "@/services/lead-followups-service";
+
+import {
   getCurrentAuthenticatedUser,
   listActiveCounselors,
   listCounselorsForLeadFilters,
@@ -64,13 +71,38 @@ const LEAD_QUERY_KEYS = [
   "page",
 ] as const;
 
+const LEADS_VIEW_VALUES = [
+  "table",
+  "board",
+  "followups",
+] as const;
+
+/*
+ * "view" picks which of the three rendered views is shown. It is not
+ * part of LeadListQuery on purpose — it is UI state, not a data filter
+ * — so it is handled here rather than inside lib/lead-list-query.ts,
+ * but it still has to be explicitly allowed through
+ * shouldCanonicalizeSearchParams below, or it would be stripped as an
+ * unrecognized parameter on every request.
+ */
+function parseLeadsView(
+  raw: RawLeadSearchParams,
+): LeadsViewMode {
+  const rawValue = raw.view;
+  const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+
+  return (LEADS_VIEW_VALUES as readonly string[]).includes(value ?? "")
+    ? (value as LeadsViewMode)
+    : "table";
+}
+
 function shouldCanonicalizeSearchParams(
   raw: RawLeadSearchParams,
   canonical: URLSearchParams,
 ): boolean {
   const allowedKeys =
     new Set<string>(
-      LEAD_QUERY_KEYS,
+      [...LEAD_QUERY_KEYS, "view"],
     );
 
   /*
@@ -160,6 +192,8 @@ export default async function LeadsPage({
   const canManageAssignments =
     isAdmin(currentUser);
 
+  const view = parseLeadsView(rawSearchParams);
+
   const parsedQuery =
     parseLeadListQuery(
       rawSearchParams,
@@ -191,6 +225,7 @@ export default async function LeadsPage({
     activeCounselors,
     counselorFilterOptions,
     pipelineColumns,
+    followUps,
   ] = await Promise.all([
     listLeadPage(
       currentUser,
@@ -229,6 +264,14 @@ export default async function LeadsPage({
     listLeadPipeline(currentUser, {
       counselorId: canManageAssignments ? query.counselor : undefined,
     }),
+
+    /*
+     * Follow-ups view. Scoped the same way as the table and board
+     * views by the same shared `counselor` filter.
+     */
+    listLeadFollowUps(currentUser, {
+      counselorId: canManageAssignments ? query.counselor : undefined,
+    }),
   ]);
 
   /*
@@ -263,10 +306,12 @@ if (
     canonicalParams,
   )
 ) {
+  const canonicalUrl = createLeadsUrl(canonicalQuery);
+
   redirect(
-    createLeadsUrl(
-      canonicalQuery,
-    ),
+    view !== "table"
+      ? `${canonicalUrl}${canonicalUrl.includes("?") ? "&" : "?"}view=${view}`
+      : canonicalUrl,
   );
 }
 
@@ -299,6 +344,7 @@ if (
       </section>
 
       <LeadsViewSwitcher
+        view={view}
         tableView={
           <LeadsWorkspace
             initialLeads={
@@ -339,6 +385,10 @@ if (
 
         boardView={
           <LeadPipelineBoard columns={pipelineColumns} />
+        }
+
+        followUpsView={
+          <LeadFollowUpsView followUps={followUps} />
         }
       />
     </div>

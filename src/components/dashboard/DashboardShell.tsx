@@ -62,7 +62,7 @@ export default function DashboardShell({
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <aside className="hidden lg:flex lg:w-64 lg:shrink-0 lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white">
         <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-5">
           <BrandMark />
         </div>

@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import ArchiveLeadButton from "@/components/leads/ArchiveLeadButton";
 import EditLeadForm from "@/components/EditLeadForm";
 import EnrollLeadForm from "@/components/leads/EnrollLeadForm";
+import EnrollmentHistoryList from "@/components/leads/EnrollmentHistoryList";
 import LeadActivityTimeline from "@/components/leads/LeadActivityTimeline";
 import LeadDetailHeader from "@/components/leads/LeadDetailHeader";
 import LeadNoteForm from "@/components/leads/LeadNoteForm";
@@ -152,6 +153,15 @@ export default async function LeadDetailPage({
     }),
   );
 
+  const activeEnrollment =
+    lead.enrollments.find(
+      (enrollment) => enrollment.status === "ACTIVE",
+    ) ?? null;
+
+  const pastEnrollments = lead.enrollments.filter(
+    (enrollment) => enrollment.status !== "ACTIVE",
+  );
+
   return (
     <div className="grid min-w-0 gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -190,20 +200,29 @@ export default async function LeadDetailPage({
           {
             key: "enrollment",
 
-            label:
-              lead.status === "ENROLLED"
-                ? "Enrollment"
-                : "Enroll lead",
+            label: activeEnrollment
+              ? "Enrollment"
+              : "Enroll lead",
 
             content: (
-              <EnrollLeadForm
-                leadId={lead.id}
-                leadName={lead.fullName}
-                currentStatus={lead.status}
-                batches={
-                  enrollmentBatches
-                }
-              />
+              <div className="grid gap-6">
+                <EnrollLeadForm
+                  leadId={lead.id}
+                  leadName={lead.fullName}
+                  currentEnrollment={
+                    activeEnrollment
+                  }
+                  batches={
+                    enrollmentBatches
+                  }
+                />
+
+                <EnrollmentHistoryList
+                  enrollments={
+                    pastEnrollments
+                  }
+                />
+              </div>
             ),
           },
 

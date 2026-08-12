@@ -13,8 +13,9 @@
  * not, because tsx's CJS loader doesn't route through it). So the
  * transaction logic below is a deliberate line-for-line copy of what
  * enrollLead() actually does, run against the same PostgreSQL database
- * and the same schema constraints (the @unique on Enrollment.leadId,
- * Serializable isolation). It proves the database-level guarantees;
+ * and the same schema constraints (the partial unique index on
+ * Enrollment(leadId) WHERE status = 'ACTIVE', Serializable isolation).
+ * It proves the database-level guarantees;
  * the actual request path in production is still enroll-lead.ts ->
  * enrollment-service.ts, unmodified by this script.
  *
@@ -91,15 +92,19 @@ async function enrollLead(leadId: string, batchId: string) {
     async (tx) => {
       const lead = await tx.lead.findFirst({
         where: { id: leadId, archivedAt: null },
-        select: { id: true, status: true, enrollment: { select: { id: true } } },
+        select: {
+          id: true,
+          status: true,
+          enrollments: { where: { status: EnrollmentStatus.ACTIVE }, select: { id: true } },
+        },
       });
 
       if (!lead) {
         throw new EnrollError("LEAD_NOT_FOUND", "Lead not found.");
       }
 
-      if (lead.enrollment || lead.status === LeadStatus.ENROLLED) {
-        throw new EnrollError("ALREADY_ENROLLED", "This lead already has an enrollment.");
+      if (lead.enrollments.length > 0) {
+        throw new EnrollError("ALREADY_ENROLLED", "This lead already has an active enrollment.");
       }
 
       const batch = await tx.batch.findUnique({
@@ -135,7 +140,7 @@ async function enrollLead(leadId: string, batchId: string) {
       }
 
       const enrolledCount = await tx.enrollment.count({
-        where: { batchId: batch.id, status: { not: EnrollmentStatus.CANCELLED } },
+        where: { batchId: batch.id, status: { notIn: [EnrollmentStatus.CANCELLED, EnrollmentStatus.DROPPED] } },
       });
 
       if (enrolledCount >= batch.capacity) {
@@ -256,7 +261,7 @@ async function main() {
 
     await enrollLead(firstLead, capacityOneBatch.id);
     const finalCount = await prisma.enrollment.count({
-      where: { batchId: capacityOneBatch.id, status: { not: EnrollmentStatus.CANCELLED } },
+      where: { batchId: capacityOneBatch.id, status: { notIn: [EnrollmentStatus.CANCELLED, EnrollmentStatus.DROPPED] } },
     });
     report(
       "Capacity exactly reached — first enrollment",
@@ -344,24 +349,95 @@ async function main() {
     }
 
     // Also prove the database itself blocks it, independent of the
-    // application check, by trying to insert a second Enrollment row
-    // directly against the unique constraint on leadId.
+    // application check, by trying to insert a second ACTIVE Enrollment
+    // row directly — this exercises the hand-written partial unique
+    // index (leadId) WHERE status = 'ACTIVE' from the
+    // enrollment_history_and_dropped_status migration, not a plain
+    // column-level unique constraint (a lead can have many historical
+    // Enrollment rows now; it's "more than one ACTIVE" that's illegal).
     try {
       await prisma.enrollment.create({
         data: { leadId: doubleEnrollLead, batchId: doubleEnrollBatch.id, status: EnrollmentStatus.ACTIVE },
       });
-      report("Database unique constraint blocks duplicate enrollment", false, "raw insert unexpectedly succeeded");
+      report("Database partial unique index blocks a second ACTIVE enrollment", false, "raw insert unexpectedly succeeded");
     } catch (error) {
       const isUniqueViolation =
         typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "P2002";
       report(
-        "Database unique constraint blocks duplicate enrollment",
+        "Database partial unique index blocks a second ACTIVE enrollment",
         isUniqueViolation,
         isUniqueViolation ? "rejected with P2002 (unique constraint)" : `rejected with unexpected error: ${error}`,
       );
     }
 
-    // --- Scenario 5: concurrent enrollment race for the last seat ---
+    // --- Scenario 5: dropping an enrollment frees its seat, and the
+    // dropped lead is free to re-enroll elsewhere ---
+    const dropFreesSeatBatch = await createQaBatch({
+      title: "Drop Frees Seat Batch",
+      capacity: 1,
+      status: BatchStatus.UPCOMING,
+      startDate: daysFromToday(7),
+      endDate: daysFromToday(14),
+    });
+
+    const dropLead = await createQaLead();
+    const waitingLead = await createQaLead();
+
+    const droppableEnrollment = await enrollLead(dropLead, dropFreesSeatBatch.id);
+
+    try {
+      await enrollLead(waitingLead, dropFreesSeatBatch.id);
+      report("Batch is full before the drop", false, "second enrollment unexpectedly succeeded");
+    } catch (error) {
+      const code = error instanceof EnrollError ? error.code : "UNKNOWN";
+      report(
+        "Batch is full before the drop",
+        code === "BATCH_FULL",
+        `rejected with code ${code} (expected BATCH_FULL)`,
+      );
+    }
+
+    // Mirrors the core mutation in dropEnrollment() from
+    // enrollment-service.ts, without the lead-pipeline side effects
+    // that function also performs.
+    await prisma.enrollment.update({
+      where: { id: droppableEnrollment.id },
+      data: { status: EnrollmentStatus.DROPPED, droppedAt: new Date() },
+    });
+
+    const occupiedAfterDrop = await prisma.enrollment.count({
+      where: { batchId: dropFreesSeatBatch.id, status: { notIn: [EnrollmentStatus.CANCELLED, EnrollmentStatus.DROPPED] } },
+    });
+
+    report(
+      "Dropping an enrollment frees its seat",
+      occupiedAfterDrop === 0,
+      `occupied seats after drop = ${occupiedAfterDrop} (expected 0)`,
+    );
+
+    try {
+      await enrollLead(waitingLead, dropFreesSeatBatch.id);
+      report("The freed seat can be taken by another lead", true, "second lead enrolled after the drop");
+    } catch (error) {
+      report("The freed seat can be taken by another lead", false, `unexpectedly rejected: ${error}`);
+    }
+
+    const reEnrollBatch = await createQaBatch({
+      title: "Re-enroll Batch",
+      capacity: 5,
+      status: BatchStatus.UPCOMING,
+      startDate: daysFromToday(7),
+      endDate: daysFromToday(14),
+    });
+
+    try {
+      await enrollLead(dropLead, reEnrollBatch.id);
+      report("A previously-dropped lead can re-enroll", true, "re-enrollment succeeded");
+    } catch (error) {
+      report("A previously-dropped lead can re-enroll", false, `unexpectedly rejected: ${error}`);
+    }
+
+    // --- Scenario 6: concurrent enrollment race for the last seat ---
     const raceBatch = await createQaBatch({
       title: "Race Batch",
       capacity: 1,
@@ -379,7 +455,7 @@ async function main() {
 
     const succeeded = raceResults.filter((result) => result.status === "fulfilled").length;
     const finalRaceCount = await prisma.enrollment.count({
-      where: { batchId: raceBatch.id, status: { not: EnrollmentStatus.CANCELLED } },
+      where: { batchId: raceBatch.id, status: { notIn: [EnrollmentStatus.CANCELLED, EnrollmentStatus.DROPPED] } },
     });
 
     report(

@@ -1,66 +1,68 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { LayoutGrid, Table2 } from "lucide-react";
+import type { ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import { cn } from "@/lib/cn";
+import { Select } from "@/components/ui/Input";
 
-type LeadsViewMode = "table" | "board";
+export type LeadsViewMode = "table" | "board" | "followups";
 
 type LeadsViewSwitcherProps = {
+  view: LeadsViewMode;
   tableView: ReactNode;
   boardView: ReactNode;
+  followUpsView: ReactNode;
 };
 
 export default function LeadsViewSwitcher({
+  view,
   tableView,
   boardView,
+  followUpsView,
 }: LeadsViewSwitcherProps) {
-  const [viewMode, setViewMode] = useState<LeadsViewMode>("table");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function navigateToView(nextView: LeadsViewMode) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (nextView === "table") {
+      params.delete("view");
+    } else {
+      params.set("view", nextView);
+    }
+
+    const query = params.toString();
+
+    router.push(
+      query ? `/dashboard/leads?${query}` : "/dashboard/leads",
+    );
+  }
 
   return (
     <div className="grid min-w-0 gap-4">
       <div className="flex justify-end">
-        <div
-          role="tablist"
-          aria-label="Leads view"
-          className="inline-flex rounded-lg border border-slate-300 bg-white p-1"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "table"}
-            onClick={() => setViewMode("table")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-              viewMode === "table"
-                ? "bg-primary-900 text-white"
-                : "text-slate-600 hover:bg-slate-100",
-            )}
-          >
-            <Table2 aria-hidden="true" className="size-4" />
-            Table
-          </button>
+        <label htmlFor="leads-view-select" className="sr-only">
+          Leads view
+        </label>
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "board"}
-            onClick={() => setViewMode("board")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-              viewMode === "board"
-                ? "bg-primary-900 text-white"
-                : "text-slate-600 hover:bg-slate-100",
-            )}
-          >
-            <LayoutGrid aria-hidden="true" className="size-4" />
-            Board
-          </button>
-        </div>
+        <Select
+          id="leads-view-select"
+          value={view}
+          className="w-auto bg-white"
+          onChange={(event) =>
+            navigateToView(event.target.value as LeadsViewMode)
+          }
+        >
+          <option value="table">Table view</option>
+          <option value="board">Board view</option>
+          <option value="followups">Follow-ups</option>
+        </Select>
       </div>
 
-      {viewMode === "table" ? tableView : boardView}
+      {view === "table" && tableView}
+      {view === "board" && boardView}
+      {view === "followups" && followUpsView}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  AlarmClock,
   BookOpen,
   CalendarDays,
+  GraduationCap,
   LayoutDashboard,
   UserCog,
   Users,
@@ -27,9 +27,9 @@ export const navigationLinks: NavLink[] = [
     icon: Users,
   },
   {
-    href: "/dashboard/leads/follow-ups",
-    label: "Follow-ups",
-    icon: AlarmClock,
+    href: "/dashboard/students",
+    label: "Students",
+    icon: GraduationCap,
   },
   {
     href: "/dashboard/courses",

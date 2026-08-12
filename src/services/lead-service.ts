@@ -13,6 +13,7 @@ import {
   requiresFollowUpDate,
   requiresNote,
 } from "@/lib/lead-status-rules";
+import type { EnrollmentSummary } from "@/services/enrollment-service";
 import type {
   Lead,
   LeadSource,
@@ -226,6 +227,9 @@ export type LeadDetails = Lead & {
   } | null;
 
   notes: LeadNoteDetails[];
+
+  /** Most recent first. At most one will have status ACTIVE. */
+  enrollments: EnrollmentSummary[];
 };
 
 export type CreateLeadInput = {
@@ -297,6 +301,34 @@ export async function getLeadById(
           createdAt: "desc",
         },
       },
+
+      enrollments: {
+        select: {
+          id: true,
+          leadId: true,
+          batchId: true,
+          enrolledAt: true,
+          status: true,
+          droppedAt: true,
+          dropReason: true,
+
+          batch: {
+            select: {
+              title: true,
+
+              course: {
+                select: {
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+
+        orderBy: {
+          enrolledAt: "desc",
+        },
+      },
     },
   });
 
@@ -327,6 +359,18 @@ export async function getLeadById(
       note: note.note,
       createdAt: note.createdAt.toISOString(),
       author: note.author,
+    })),
+
+    enrollments: lead.enrollments.map((enrollment) => ({
+      id: enrollment.id,
+      leadId: enrollment.leadId,
+      batchId: enrollment.batchId,
+      batchTitle: enrollment.batch.title,
+      courseTitle: enrollment.batch.course.title,
+      enrolledAt: enrollment.enrolledAt.toISOString(),
+      status: enrollment.status,
+      droppedAt: enrollment.droppedAt?.toISOString() ?? null,
+      dropReason: enrollment.dropReason,
     })),
   };
 }

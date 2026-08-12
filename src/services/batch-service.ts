@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   BatchStatus,
-  EnrollmentStatus,
   Prisma,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +9,7 @@ import {
   isBatchLocked,
   isBatchStatusTransitionAllowed,
 } from "@/lib/batch-status-rules";
+import { OCCUPIES_SEAT_FILTER } from "@/services/enrollment-service";
 
 export type BatchErrorCode =
   | "BATCH_NOT_FOUND"
@@ -119,9 +119,7 @@ export async function listBatches(): Promise<
         select: {
           enrollments: {
             where: {
-              status: {
-                not: EnrollmentStatus.CANCELLED,
-              },
+              status: OCCUPIES_SEAT_FILTER,
             },
           },
         },
@@ -226,9 +224,7 @@ export async function listEnrollmentBatchOptions(): Promise<
         select: {
           enrollments: {
             where: {
-              status: {
-                not: EnrollmentStatus.CANCELLED,
-              },
+              status: OCCUPIES_SEAT_FILTER,
             },
           },
         },
@@ -330,9 +326,7 @@ export async function updateBatchStatus(
           select: {
             enrollments: {
               where: {
-                status: {
-                  not: EnrollmentStatus.CANCELLED,
-                },
+                status: OCCUPIES_SEAT_FILTER,
               },
             },
           },
@@ -393,9 +387,7 @@ export async function updateBatchDetails(
           where: {
             batchId: input.batchId,
 
-            status: {
-              not: EnrollmentStatus.CANCELLED,
-            },
+            status: OCCUPIES_SEAT_FILTER,
           },
         });
 

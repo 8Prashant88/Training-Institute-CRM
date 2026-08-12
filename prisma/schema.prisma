@@ -47,6 +47,7 @@ enum EnrollmentStatus {
   ACTIVE
   COMPLETED
   CANCELLED
+  DROPPED
 }
 
 enum LeadActivityType {
@@ -100,7 +101,7 @@ model Lead {
   assignedCounselor User?          @relation("AssignedCounselor", fields: [assignedCounselorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   notes             LeadNote[]
   activities        LeadActivity[]
-  enrollment        Enrollment?
+  enrollments       Enrollment[]
   inquiryMessage    String?        @db.Text
 
   @@index([status])
@@ -171,15 +172,26 @@ model Batch {
 
 model Enrollment {
   id         String           @id @default(uuid()) @db.Uuid
-  leadId     String           @unique @db.Uuid
+  leadId     String           @db.Uuid
   batchId    String           @db.Uuid
   enrolledAt DateTime         @default(now())
   status     EnrollmentStatus @default(ACTIVE)
   updatedAt  DateTime         @updatedAt
 
+  /*
+   * Only populated when status is DROPPED. A lead can have more than
+   * one Enrollment row over time (drop-and-re-enroll, or a second
+   * course after completing the first) — see the partial unique index
+   * added by hand in the migration, which allows many historical rows
+   * per lead but only ever one with status = ACTIVE at a time.
+   */
+  droppedAt  DateTime?
+  dropReason String?          @db.Text
+
   lead  Lead  @relation(fields: [leadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   batch Batch @relation(fields: [batchId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@index([leadId])
   @@index([batchId])
   @@index([status])
   @@index([enrolledAt])

@@ -609,3 +609,21 @@
 - A Route Handler is the right tool when the response is a real file with its own headers, not a page render or a Server Action result.
 - CSV has its own injection class — formula injection — that doesn't exist anywhere else in this app's data flow.
 - A verification check that confirms an exact hand-computed number catches bugs that "the query didn't error" never would.
+
+## Day 18 — Automated Testing
+
+### What I did
+
+- Set up Vitest and wrote a real test suite: unit tests (CSV escaping, lead/batch status transition rules, Zod schemas — no database) and integration tests (`enrollLead`, `dropEnrollment`, `createLead`, `getDashboardData` — real Postgres, not mocked).
+- Solved the same `"server-only"` import problem that blocked yesterday's scripts, properly this time: Vitest runs on Vite, and Vite's resolver can be told to prefer the package's `"react-server"` export condition, so tests import the real service files directly instead of duplicating their logic.
+- Wrote test data factories (`createTestLead`, `createTestBatch`, etc.) tagged and swept the same way as the verify scripts, so tests are safe against the shared dev database.
+- Hit a real connection-pool exhaustion bug from not disconnecting Prisma between test files (557s test run down to 15s once fixed) — a genuine production-relevant lesson, not a test-only one.
+- Decided not to keep the suite in the repo for now. Reverted everything — test files, Vitest config, the two new devDependencies — back to yesterday's state.
+
+### What I learned
+
+- The test pyramid isn't abstract: unit tests are pure functions with no I/O (fast, no mocking needed); integration tests hit the real database because some things — like a partial unique index actually preventing a race condition — can't be verified against a fake one.
+- Arrange-Act-Assert is just naming the three things every test already does: set up input, call the thing, check the result.
+- A test failure taught a real lesson about my own test, not the code: asserting on raw CSV bytes instead of "the value a spreadsheet parses back out" was checking the wrong layer.
+- Tests need cleanup discipline as much as application code does — an un-disconnected database connection pool degrades everything that runs after it, silently.
+- Writing the tests was worth doing even though the files didn't stay — the value was in seeing exactly where each business rule lives and proving it, not necessarily in maintaining a permanent suite starting today.

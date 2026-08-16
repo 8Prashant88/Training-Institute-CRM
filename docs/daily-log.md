@@ -643,3 +643,21 @@
 - Baking authorization into the database query (`assignedCounselorId: currentUser.id` in the `where` clause) is stronger than fetch-then-check: an unauthorized row is never even returned.
 - CSV has its own injection class — a cell starting with `=`/`+`/`-`/`@` can execute as a spreadsheet formula — separate from SQL/XSS injection.
 - An in-memory rate limiter only holds per server process; a multi-instance deployment would need a shared store like Redis instead.
+
+## Day 20 — External Integration and Production Deployment
+
+### What I did
+
+- Integrated Resend into the public inquiry flow so every successfully created lead can trigger an email notification without making email delivery part of the core database operation.
+- Added explicit handling for missing configuration, provider errors, timeouts, and duplicate sends using a stable idempotency key based on the lead ID.
+- Deliberately tested the integration with valid configuration, a missing API key, invalid provider credentials, and two identical email requests to verify failure handling and idempotency.
+- Added the production environment variables to Vercel, deployed the latest build, and confirmed the production database had no pending Prisma migrations.
+- Reviewed production deployment and rollback strategy, including safe migrations, Git-based code rollback, secret rotation, and why database changes sometimes need a forward fix instead of a code revert.
+
+### What I learned
+
+- An external API should not be allowed to undo a successful core business operation — a lead can exist successfully even if its notification email fails.
+- A timeout only means my application stopped waiting; the external request may still complete, which is why idempotency is important when retrying side effects.
+- Missing configuration and provider failure are different problems and should be logged separately so production failures are easier to diagnose.
+- Deployment is more than pushing code: the application, environment variables, database migrations, authentication configuration, and external services all have to agree.
+- Rolling application code back is relatively simple, but database rollback can be destructive; additive migrations and forward fixes are safer than assuming an old deployment can restore changed or deleted data.

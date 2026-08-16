@@ -4,10 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
-import {
-  CourseStatus,
-  LeadSource,
-} from "@/generated/prisma/client";
+import { CourseStatus, LeadSource } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -15,6 +12,7 @@ import {
   type PublicInquiryFormData,
 } from "@/schemas/lead-schema";
 import { createLead } from "@/services/lead-service";
+import { sendPublicInquiryNotification } from "@/services/email-service";
 
 /*
  * This is the one endpoint in the CRM anyone on the internet can call
@@ -93,24 +91,17 @@ export async function submitPublicInquiry(
 
       return {
         success: false,
-        message:
-          "The inquiry contains invalid information.",
+        message: "The inquiry contains invalid information.",
         fieldErrors: {
-          fullName:
-            errors.fieldErrors.fullName?.[0],
+          fullName: errors.fieldErrors.fullName?.[0],
 
-          email:
-            errors.fieldErrors.email?.[0],
+          email: errors.fieldErrors.email?.[0],
 
-          phone:
-            errors.fieldErrors.phone?.[0],
+          phone: errors.fieldErrors.phone?.[0],
 
-          interestedCourseId:
-            errors.fieldErrors
-              .interestedCourseId?.[0],
+          interestedCourseId: errors.fieldErrors.interestedCourseId?.[0],
 
-          message:
-            errors.fieldErrors.message?.[0],
+          message: errors.fieldErrors.message?.[0],
         },
       };
     }
@@ -128,11 +119,9 @@ export async function submitPublicInquiry(
     if (!course) {
       return {
         success: false,
-        message:
-          "The selected course is no longer available.",
+        message: "The selected course is no longer available.",
         fieldErrors: {
-          interestedCourseId:
-            "Select an active course.",
+          interestedCourseId: "Select an active course.",
         },
       };
     }
@@ -141,12 +130,31 @@ export async function submitPublicInquiry(
       fullName: result.data.fullName,
       email: result.data.email,
       phone: result.data.phone,
-      interestedCourseId:
-        result.data.interestedCourseId,
+      interestedCourseId: result.data.interestedCourseId,
       source: LeadSource.WEBSITE,
       assignedCounselorId: null,
       inquiryMessage: result.data.message,
     });
+    
+    const notificationResult = await sendPublicInquiryNotification({
+      leadId: lead.id,
+
+      fullName: lead.fullName,
+      email: lead.email,
+      phone: lead.phone,
+
+      courseTitle: lead.interestedCourse,
+
+      message: result.data.message,
+    });
+
+    if (!notificationResult.success) {
+      console.error("Public inquiry email notification failed.", {
+        leadId: lead.id,
+        code: notificationResult.code,
+        message: notificationResult.message,
+      });
+    }
 
     revalidatePath("/");
     revalidatePath("/dashboard");
@@ -155,23 +163,18 @@ export async function submitPublicInquiry(
 
     return {
       success: true,
-      message:
-        "Your inquiry has been submitted successfully.",
+      message: "Your inquiry has been submitted successfully.",
       data: {
         leadId: lead.id,
       },
       fieldErrors: {},
     };
   } catch (error) {
-    console.error(
-      "submitPublicInquiry failed",
-      error,
-    );
+    console.error("submitPublicInquiry failed", error);
 
     return {
       success: false,
-      message:
-        "The server could not submit your inquiry. Please try again.",
+      message: "The server could not submit your inquiry. Please try again.",
       fieldErrors: {},
     };
   }

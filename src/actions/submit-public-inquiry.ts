@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
@@ -8,11 +9,42 @@ import {
   LeadSource,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   publicInquirySchema,
   type PublicInquiryFormData,
 } from "@/schemas/lead-schema";
 import { createLead } from "@/services/lead-service";
+
+/*
+ * This is the one endpoint in the CRM anyone on the internet can call
+ * without signing in, so it's the one endpoint that needs abuse
+ * protection independent of auth. 5 submissions per 10 minutes per IP
+ * is generous for a real visitor filling out one inquiry, and slows a
+ * spam script down without needing a CAPTCHA yet.
+ */
+const PUBLIC_INQUIRY_RATE_LIMIT = {
+  limit: 5,
+  windowMs: 10 * 60 * 1000,
+};
+
+async function getClientIp(): Promise<string> {
+  const headerList = await headers();
+
+  /*
+   * x-forwarded-for can be a comma-separated chain of proxies; the
+   * first entry is the original client. Trusted here because the app
+   * only ever runs behind its own reverse proxy / hosting platform,
+   * which sets this header itself.
+   */
+  const forwardedFor = headerList.get("x-forwarded-for");
+
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  return headerList.get("x-real-ip") ?? "unknown";
+}
 
 type PublicInquiryFieldErrors = Partial<
   Record<keyof PublicInquiryFormData, string>
@@ -38,6 +70,22 @@ export async function submitPublicInquiry(
   input: unknown,
 ): Promise<SubmitPublicInquiryResult> {
   try {
+    const clientIp = await getClientIp();
+
+    const rateLimitResult = checkRateLimit(
+      `public-inquiry:${clientIp}`,
+      PUBLIC_INQUIRY_RATE_LIMIT,
+    );
+
+    if (!rateLimitResult.allowed) {
+      return {
+        success: false,
+        message:
+          "Too many inquiries submitted. Please try again in a few minutes.",
+        fieldErrors: {},
+      };
+    }
+
     const result = publicInquirySchema.safeParse(input);
 
     if (!result.success) {

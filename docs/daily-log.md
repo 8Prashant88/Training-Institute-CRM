@@ -627,3 +627,19 @@
 - A test failure taught a real lesson about my own test, not the code: asserting on raw CSV bytes instead of "the value a spreadsheet parses back out" was checking the wrong layer.
 - Tests need cleanup discipline as much as application code does — an un-disconnected database connection pool degrades everything that runs after it, silently.
 - Writing the tests was worth doing even though the files didn't stay — the value was in seeing exactly where each business rule lives and proving it, not necessarily in maintaining a permanent suite starting today.
+
+## Day 19 — Security Review
+
+### What I did
+
+- Audited every Server Action, the CSV export Route Handler, and the auth/authorization core against the Day 19 checklist: input validation, auth, authorization, secrets, error leakage, rate limits, mass assignment.
+- Confirmed authorization is already enforced inside Prisma `where` clauses (not just app-level `if` checks), mass assignment is blocked everywhere (`authorId`/role/id always come from the session, never the client), and CSV export already escapes formula injection.
+- Found one real gap: the public inquiry form had no abuse protection, since it's the only unauthenticated endpoint. Added `src/lib/rate-limit.ts`, an in-memory per-IP fixed-window limiter (5 requests / 10 minutes), wired into `submitPublicInquiry`.
+- Verified with `tsc --noEmit`, `eslint`, and `next build` — all clean.
+
+### What I learned
+
+- Render-time gating (hiding a button) is not authorization — Server Actions are reachable by direct POST, so every check has to run inside the function itself.
+- Baking authorization into the database query (`assignedCounselorId: currentUser.id` in the `where` clause) is stronger than fetch-then-check: an unauthorized row is never even returned.
+- CSV has its own injection class — a cell starting with `=`/`+`/`-`/`@` can execute as a spreadsheet formula — separate from SQL/XSS injection.
+- An in-memory rate limiter only holds per server process; a multi-instance deployment would need a shared store like Redis instead.

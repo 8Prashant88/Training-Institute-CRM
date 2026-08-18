@@ -71,7 +71,7 @@ export default function DashboardShell({
 
         <SidebarNav
           role={currentUser.role}
-          className="flex-1 overflow-y-auto px-3 py-4"
+          className="flex-1 overflow-y-auto px-2.5 py-4"
         />
 
         <div className="border-t border-slate-100 p-4 text-xs text-slate-400">
@@ -105,7 +105,7 @@ export default function DashboardShell({
             <SidebarNav
               role={currentUser.role}
               onNavigate={() => setMobileNavOpen(false)}
-              className="flex-1 overflow-y-auto px-3 py-4"
+              className="flex-1 overflow-y-auto px-2.5 py-4"
             />
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function DashboardShell({
         />
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>
+          <div className="mx-auto w-full max-w-[1600px] min-w-0">{children}</div>
         </main>
       </div>
     </div>

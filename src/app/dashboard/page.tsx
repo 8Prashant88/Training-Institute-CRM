@@ -100,7 +100,7 @@ export default async function DashboardPage() {
               stats.totalLeads
             }
             icon={Users}
-            description="Non-archived inquiries"
+            description="All active inquiries"
           />
 
           <StatCard

@@ -70,12 +70,6 @@ export default function LeadDetailHeader({
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
               <span>
-                Lead ID: {lead.id}
-              </span>
-
-              <span>·</span>
-
-              <span>
                 Added{" "}
                 {formatDate(
                   lead.createdAt,

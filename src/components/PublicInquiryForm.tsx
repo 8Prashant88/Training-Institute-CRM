@@ -181,11 +181,18 @@ export default function PublicInquiryForm({
   if (isSubmitted) {
     return (
       <Card className="flex flex-col items-center justify-center gap-3 p-8 text-center sm:p-10">
-        <div
-          aria-hidden="true"
-          className="flex size-12 items-center justify-center rounded-full bg-green-100 text-green-600"
-        >
-          <CheckCircle2 className="size-6" />
+        <div className="relative flex size-14 items-center justify-center">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 rounded-full bg-green-400/30 blur-xl"
+          />
+
+          <div
+            aria-hidden="true"
+            className="relative flex size-14 items-center justify-center rounded-full bg-green-100 text-green-600"
+          >
+            <CheckCircle2 className="size-7" />
+          </div>
         </div>
 
         <h2 className="text-xl font-semibold text-primary-900">
@@ -208,7 +215,12 @@ export default function PublicInquiryForm({
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="h-1.5 w-full bg-gradient-to-r from-accent-500 via-accent-400 to-primary-700"
+      />
+
       <CardContent>
         <form
           noValidate

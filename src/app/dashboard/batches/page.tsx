@@ -10,6 +10,7 @@ import { listBatches } from "@/services/batch-service";
 import CreateBatchForm from "@/components/batches/CreateBatchForm";
 import BatchManagementControls from "@/components/batches/BatchManagementControls";
 import { listActiveCourses } from "@/services/course-service";
+import EmptyState from "@/components/EmptyState";
 import {
   isAdmin,
 } from "@/lib/authorization";
@@ -140,15 +141,10 @@ const canManageBatches =
       
 
       {batches.length === 0 ? (
-        <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-          <h2 className="text-lg font-semibold text-primary-900">
-            No batches found
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Create a batch in the database to display it here.
-          </p>
-        </section>
+        <EmptyState
+          title="No batches found"
+          description="Create a batch in the database to display it here."
+        />
       ) : (
         <section
           aria-label="Batches"

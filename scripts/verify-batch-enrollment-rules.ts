@@ -1,31 +1,4 @@
-/*
- * "Test and break intentionally" for the batch/enrollment business
- * rules — capacity, batch status, past-batch dates, and duplicate/
- * concurrent enrollment — run directly against the real dev database.
- * Re-run this any time those rules change to confirm nothing regressed.
- *
- * Why this exists as a standalone script instead of importing the actual
- * service files (src/services/enrollment-service.ts, batch-service.ts):
- * those files import the real "server-only" package, which throws
- * unconditionally outside Next's server bundler — there is no flag that
- * makes plain Node/tsx accept it (Next resolves the "react-server"
- * export condition itself; a bare `node --conditions=react-server` does
- * not, because tsx's CJS loader doesn't route through it). So the
- * transaction logic below is a deliberate line-for-line copy of what
- * enrollLead() actually does, run against the same PostgreSQL database
- * and the same schema constraints (the partial unique index on
- * Enrollment(leadId) WHERE status = 'ACTIVE', Serializable isolation).
- * It proves the database-level guarantees;
- * the actual request path in production is still enroll-lead.ts ->
- * enrollment-service.ts, unmodified by this script.
- *
- * This script creates its own throwaway Course/Batch/Lead rows (all
- * titled "QA ...") and deletes everything it created in a `finally`
- * block, including a pre-run sweep in case a previous crashed run left
- * rows behind.
- *
- * Run with: npx tsx scripts/verify-batch-enrollment-rules.ts
- */
+
 import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -66,11 +39,7 @@ function report(scenario: string, ok: boolean, detail: string) {
   }
 }
 
-/*
- * Verbatim copy of enrollLead()'s logic from
- * src/services/enrollment-service.ts, including the BATCH_ENDED
- * end-of-day boundary check added today.
- */
+
 type EnrollErrorCode =
   | "LEAD_NOT_FOUND"
   | "ALREADY_ENROLLED"

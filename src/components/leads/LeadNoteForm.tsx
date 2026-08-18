@@ -12,6 +12,7 @@ import {
 } from "@/actions/create-lead-note";
 
 import Button from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
 import {
   Textarea,
 } from "@/components/ui/Input";
@@ -134,20 +135,21 @@ export default function LeadNoteForm({
       </div>
 
       <div className="mt-5 grid gap-4">
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-3">
-            <label
-              htmlFor="lead-note"
-              className="text-sm font-medium text-slate-700"
-            >
-              Note
-            </label>
-
+        <Field
+          id="lead-note"
+          label="Note"
+          error={fieldErrors.note}
+          helpText={
+            fieldErrors.note
+              ? undefined
+              : "Minimum 3 characters."
+          }
+          trailing={
             <span className="text-xs text-slate-400">
               {note.length}/2000
             </span>
-          </div>
-
+          }
+        >
           <Textarea
             id="lead-note"
             value={note}
@@ -158,11 +160,6 @@ export default function LeadNoteForm({
               fieldErrors.note,
             )}
             placeholder="Write the latest discussion, concern, or follow-up update..."
-            aria-describedby={
-              fieldErrors.note
-                ? "lead-note-error"
-                : "lead-note-help"
-            }
             onChange={(event) => {
               setNote(
                 event.target.value,
@@ -176,24 +173,7 @@ export default function LeadNoteForm({
               );
             }}
           />
-
-          {fieldErrors.note ? (
-            <p
-              id="lead-note-error"
-              role="alert"
-              className="mt-1.5 text-sm text-red-600"
-            >
-              {fieldErrors.note}
-            </p>
-          ) : (
-            <p
-              id="lead-note-help"
-              className="mt-1.5 text-xs text-slate-500"
-            >
-              Minimum 3 characters.
-            </p>
-          )}
-        </div>
+        </Field>
 
         <div className="flex justify-end">
           <Button

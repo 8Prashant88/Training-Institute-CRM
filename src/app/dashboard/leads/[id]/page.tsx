@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import ArchiveLeadButton from "@/components/leads/ArchiveLeadButton";
@@ -96,7 +96,7 @@ export default async function LeadDetailPage({
     await getCurrentAuthenticatedUser();
 
   if (!currentUser) {
-    notFound();
+    redirect("/login");
   }
 
   const lead = await getLeadById(id);
@@ -167,7 +167,7 @@ export default async function LeadDetailPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href="/dashboard/leads"
-          className="inline-flex w-fit items-center gap-1.5 rounded-md text-sm font-medium text-slate-600 transition hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+          className="inline-flex w-fit items-center gap-1.5 rounded-md text-sm font-medium text-slate-600 transition hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
         >
           <ArrowLeft
             aria-hidden="true"

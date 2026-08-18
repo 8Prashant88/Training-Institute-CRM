@@ -41,7 +41,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Training Institute
             </p>
 
-            <p className="text-xs font-semibold uppercase tracking-widest text-accent-600">
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent-700">
               CRM Platform
             </p>
           </div>

@@ -10,6 +10,7 @@ import {
 } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { notifyLeadEnrolled } from "@/services/notification-service";
 
 /**
  * A cancelled or dropped seat no longer counts against a batch's
@@ -80,6 +81,7 @@ export async function enrollLead(
 
           select: {
             id: true,
+            fullName: true,
             status: true,
             interestedCourseId: true,
             assignedCounselorId: true,
@@ -253,6 +255,18 @@ export async function enrollLead(
 
           nextFollowUpAt: null,
         },
+      });
+
+      await notifyLeadEnrolled(transaction, {
+        lead: {
+          id: lead.id,
+          fullName: lead.fullName,
+          assignedCounselorId: lead.assignedCounselorId,
+        },
+
+        courseTitle: batch.course.title,
+        batchTitle: batch.title,
+        actorId: input.actor.id,
       });
 
       return {

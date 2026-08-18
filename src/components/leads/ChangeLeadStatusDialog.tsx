@@ -5,6 +5,7 @@ import { useState } from "react";
 import { changeLeadStatus } from "@/actions/update-lead-status";
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
+import Field from "@/components/ui/Field";
 import { Input, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 
@@ -162,14 +163,11 @@ export default function ChangeLeadStatusDialog({
         )}
 
         {needsDate && (
-          <div>
-            <label
-              htmlFor="change-status-follow-up"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
-            >
-              Next follow-up (required)
-            </label>
-
+          <Field
+            id="change-status-follow-up"
+            label="Next follow-up (required)"
+            error={fieldErrors.nextFollowUpAt}
+          >
             <Input
               id="change-status-follow-up"
               type="datetime-local"
@@ -178,24 +176,15 @@ export default function ChangeLeadStatusDialog({
               invalid={Boolean(fieldErrors.nextFollowUpAt)}
               onChange={(event) => setNextFollowUpAt(event.target.value)}
             />
-
-            {fieldErrors.nextFollowUpAt && (
-              <p role="alert" className="mt-1.5 text-sm text-red-600">
-                {fieldErrors.nextFollowUpAt}
-              </p>
-            )}
-          </div>
+          </Field>
         )}
 
         {needsNote && (
-          <div>
-            <label
-              htmlFor="change-status-note"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
-            >
-              Note (required)
-            </label>
-
+          <Field
+            id="change-status-note"
+            label="Note (required)"
+            error={fieldErrors.note}
+          >
             <Textarea
               id="change-status-note"
               rows={3}
@@ -210,13 +199,7 @@ export default function ChangeLeadStatusDialog({
               }
               onChange={(event) => setNote(event.target.value)}
             />
-
-            {fieldErrors.note && (
-              <p role="alert" className="mt-1.5 text-sm text-red-600">
-                {fieldErrors.note}
-              </p>
-            )}
-          </div>
+          </Field>
         )}
 
         {!needsNote && !needsDate && !isBlocked && (

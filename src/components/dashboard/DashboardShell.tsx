@@ -18,7 +18,7 @@ function BrandMark() {
   return (
     <Link
       href="/dashboard"
-      className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+      className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
     >
       <span
         aria-hidden="true"
@@ -31,7 +31,7 @@ function BrandMark() {
         <span className="block truncate text-sm font-bold leading-tight text-primary-900">
           Training Institute
         </span>
-        <span className="block text-[11px] font-semibold uppercase tracking-widest text-accent-600">
+        <span className="block text-[11px] font-semibold uppercase tracking-widest text-accent-700">
           CRM Platform
         </span>
       </span>
@@ -42,9 +42,11 @@ function BrandMark() {
 export default function DashboardShell({
   children,
   currentUser,
+  initialUnreadCount,
 }: {
   children: ReactNode;
   currentUser: DashboardUser;
+  initialUnreadCount: number;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -94,7 +96,7 @@ export default function DashboardShell({
                 type="button"
                 aria-label="Close navigation menu"
                 onClick={() => setMobileNavOpen(false)}
-                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
               >
                 <X aria-hidden="true" className="size-5" />
               </button>
@@ -113,6 +115,7 @@ export default function DashboardShell({
         <Topbar
           currentUser={currentUser}
           onOpenMobileNav={() => setMobileNavOpen(true)}
+          initialUnreadCount={initialUnreadCount}
         />
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">

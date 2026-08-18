@@ -45,7 +45,7 @@ export default function Field({
           {required && (
             <span
               aria-hidden="true"
-              className="ml-0.5 text-accent-600"
+              className="ml-0.5 text-accent-700"
             >
               *
             </span>

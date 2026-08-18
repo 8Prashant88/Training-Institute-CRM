@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { submitCourse } from "@/actions/create-course";
 import Button from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 
@@ -107,14 +108,7 @@ export default function CreateCourseForm() {
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor="course-title"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Course title
-          </label>
-
+        <Field id="course-title" label="Course title" error={fieldErrors.title}>
           <Input
             id="course-title"
             value={values.title}
@@ -123,22 +117,9 @@ export default function CreateCourseForm() {
             placeholder="Full-Stack Web Development"
             onChange={(event) => updateField("title", event.target.value)}
           />
+        </Field>
 
-          {fieldErrors.title && (
-            <p role="alert" className="mt-1.5 text-sm text-red-600">
-              {fieldErrors.title}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="course-duration"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Duration
-          </label>
-
+        <Field id="course-duration" label="Duration" error={fieldErrors.duration}>
           <Input
             id="course-duration"
             value={values.duration}
@@ -147,13 +128,7 @@ export default function CreateCourseForm() {
             placeholder="12 weeks"
             onChange={(event) => updateField("duration", event.target.value)}
           />
-
-          {fieldErrors.duration && (
-            <p role="alert" className="mt-1.5 text-sm text-red-600">
-              {fieldErrors.duration}
-            </p>
-          )}
-        </div>
+        </Field>
       </div>
 
       <div className="mt-5 flex justify-end">

@@ -96,7 +96,7 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex items-center gap-2 rounded-lg p-1 pr-2 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+        className="flex items-center gap-2 rounded-lg p-1 pr-2 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
       >
         <Avatar name={currentUser.fullName} size="sm" />
 

@@ -26,6 +26,7 @@ import {
 
 import { isAdmin } from "@/lib/authorization";
 import { formatDate } from "@/lib/format";
+import EmptyState from "@/components/EmptyState";
 import { listBatches } from "@/services/batch-service";
 import { listCoursesForLeadFilters } from "@/services/course-service";
 import { listStudents } from "@/services/student-service";
@@ -253,17 +254,14 @@ export default async function StudentsPage({
       </form>
 
       {students.length === 0 ? (
-        <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-          <h2 className="text-lg font-semibold text-primary-900">
-            No students found
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            {hasActiveFilters
+        <EmptyState
+          title="No students found"
+          description={
+            hasActiveFilters
               ? "No enrollments match the current filters."
-              : "Enroll a lead from the Leads page to see them here."}
-          </p>
-        </section>
+              : "Enroll a lead from the Leads page to see them here."
+          }
+        />
       ) : (
         <TableContainer>
           <Table>

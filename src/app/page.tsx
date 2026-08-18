@@ -82,7 +82,7 @@ export default async function HomePage() {
 
       <section className="px-4 py-14 sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-6xl">
-          <p className="text-sm font-semibold uppercase tracking-wider text-accent-600">
+          <p className="text-sm font-semibold uppercase tracking-wider text-accent-700">
             Programs
           </p>
           <h2 className="mt-2 text-2xl font-bold text-primary-900 sm:text-3xl">

@@ -23,6 +23,7 @@ import { formatDate } from "@/lib/format";
 import type { Person } from "@/types/people";
 import CreatePersonDialog from "@/components/people/CreatePersonDialog";
 import PersonRowActions from "@/components/people/PersonRowActions";
+import EmptyState from "@/components/EmptyState";
 
 type FilterKey = "all" | "admins" | "counselors" | "inactive";
 
@@ -134,17 +135,14 @@ export default function PeopleManager({
       </div>
 
       {filteredPeople.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-          <h2 className="text-lg font-semibold text-primary-900">
-            No people found
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            {people.length === 0
+        <EmptyState
+          title="No people found"
+          description={
+            people.length === 0
               ? "Add your first administrator or counselor to get started."
-              : "Try a different search term or filter."}
-          </p>
-        </div>
+              : "Try a different search term or filter."
+          }
+        />
       ) : (
         <TableContainer>
           <Table>

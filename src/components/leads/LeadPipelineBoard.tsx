@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 import ChangeLeadStatusDialog from "@/components/leads/ChangeLeadStatusDialog";
 import LeadPipelineCard from "@/components/leads/LeadPipelineCard";
-import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Badge from "@/components/ui/Badge";
+import { leadStatusTones } from "@/lib/lead-status";
 import {
   leadStatusLabels,
   type LeadStatus,
@@ -14,15 +15,6 @@ import type {
   LeadPipelineCardData,
   LeadPipelineColumn,
 } from "@/services/lead-pipeline-service";
-
-const columnTones: Record<LeadStatus, BadgeTone> = {
-  NEW: "blue",
-  CONTACTED: "violet",
-  INTERESTED: "amber",
-  FOLLOW_UP: "orange",
-  ENROLLED: "green",
-  LOST: "red",
-};
 
 type SelectedTarget = {
   leadId: string;
@@ -63,7 +55,7 @@ export default function LeadPipelineBoard({
             className="flex w-72 shrink-0 flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
           >
             <div className="flex items-center justify-between px-1">
-              <Badge tone={columnTones[column.status]} dot>
+              <Badge tone={leadStatusTones[column.status]} dot>
                 {leadStatusLabels[column.status]}
               </Badge>
 

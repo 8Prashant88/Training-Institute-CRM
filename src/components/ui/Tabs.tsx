@@ -43,7 +43,7 @@ export default function Tabs({ tabs, defaultTab, className }: TabsProps) {
               aria-controls={`tabpanel-${tab.key}`}
               onClick={() => setActiveKey(tab.key)}
               className={cn(
-                "shrink-0 border-b-2 px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2",
+                "shrink-0 border-b-2 px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2",
                 isActive
                   ? "border-primary-900 text-primary-900"
                   : "border-transparent text-slate-500 hover:text-slate-800",

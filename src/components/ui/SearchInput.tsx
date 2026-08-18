@@ -22,7 +22,7 @@ export default function SearchInput({
       <input
         type="search"
         className={cn(
-          "h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-500/40",
+          "h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-600/40",
           className,
         )}
         {...props}

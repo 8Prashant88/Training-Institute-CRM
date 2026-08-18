@@ -26,7 +26,7 @@ export default function LeadCard({
             aria-label={`Select ${lead.fullName}`}
             checked={selected}
             onChange={() => onToggleSelect(lead.id)}
-            className="mt-1 size-4 shrink-0 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+            className="mt-1 size-4 shrink-0 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
           />
         )}
 
@@ -34,7 +34,7 @@ export default function LeadCard({
 
         <Link
           href={`/dashboard/leads/${lead.id}`}
-          className="min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+          className="min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
         >
           <h2 className="truncate text-base font-semibold text-slate-900">
             {lead.fullName}

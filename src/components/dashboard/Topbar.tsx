@@ -1,12 +1,14 @@
 "use client";
 
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 
+import NotificationsMenu from "@/components/dashboard/NotificationsMenu";
 import UserMenu from "@/components/dashboard/UserMenu";
 
 type TopbarProps = {
   currentUser: DashboardUser;
   onOpenMobileNav: () => void;
+  initialUnreadCount: number;
 };
 
 type DashboardUser = {
@@ -15,14 +17,18 @@ type DashboardUser = {
   role: "ADMIN" | "COUNSELOR";
 };
 
-export default function Topbar({ currentUser, onOpenMobileNav }: TopbarProps) {
+export default function Topbar({
+  currentUser,
+  onOpenMobileNav,
+  initialUnreadCount,
+}: TopbarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6">
       <button
         type="button"
         onClick={onOpenMobileNav}
         aria-label="Open navigation menu"
-        className="-ml-1.5 rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 lg:hidden"
+        className="-ml-1.5 rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 lg:hidden"
       >
         <Menu aria-hidden="true" className="size-5" />
       </button>
@@ -46,22 +52,12 @@ export default function Topbar({ currentUser, onOpenMobileNav }: TopbarProps) {
             name="q"
             type="search"
             placeholder="Search leads by name, email, or course…"
-            className="h-10 w-full rounded-lg border border-slate-300 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-primary-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent-500/40"
+            className="h-10 w-full rounded-lg border border-slate-300 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-primary-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent-600/40"
           />
         </div>
       </form>
 
-      <button
-        type="button"
-        aria-label="Notifications"
-        className="relative shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-      >
-        <Bell aria-hidden="true" className="size-5" />
-        <span
-          aria-hidden="true"
-          className="absolute right-1.5 top-1.5 size-2 rounded-full bg-accent-500 ring-2 ring-white"
-        />
-      </button>
+      <NotificationsMenu initialUnreadCount={initialUnreadCount} />
 
      <UserMenu currentUser={currentUser} />
     </header>

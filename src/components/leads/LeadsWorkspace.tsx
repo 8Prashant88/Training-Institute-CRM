@@ -661,7 +661,7 @@ export default function LeadsWorkspace({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-accent-600">
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent-700">
               New inquiry
             </p>
 

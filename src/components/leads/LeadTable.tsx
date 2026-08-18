@@ -87,7 +87,7 @@ export default function LeadTable({
                   onChange={
                     onToggleAll
                   }
-                  className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </TH>
             )}
@@ -144,7 +144,7 @@ export default function LeadTable({
                           lead.id,
                         )
                       }
-                      className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="size-4 rounded border-slate-300 text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </TD>
                 )}
@@ -246,7 +246,7 @@ export default function LeadTable({
                       <a
                         href={`mailto:${lead.email}`}
                         aria-label={`Email ${lead.fullName}`}
-                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
                       >
                         <Mail
                           aria-hidden="true"
@@ -258,7 +258,7 @@ export default function LeadTable({
                     <a
                       href={`tel:${lead.phone}`}
                       aria-label={`Call ${lead.fullName}`}
-                      className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                      className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
                     >
                       <Phone
                         aria-hidden="true"

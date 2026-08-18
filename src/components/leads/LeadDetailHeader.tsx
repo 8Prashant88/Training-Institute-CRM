@@ -112,41 +112,39 @@ export default function LeadDetailHeader({
             Pipeline status
           </label>
 
-          <div className="relative">
-            <Select
-              id="lead-status"
-              value={status}
-              disabled={isEnrolled}
-              onChange={(event) => {
-                handleStatusSelected(
-                  event.target
-                    .value as LeadStatus,
-                );
-              }}
-              className="w-full bg-white pr-10 sm:w-48"
-            >
-              {leadStatuses.map(
-                (option) => (
-                  <option
-                    key={option}
-                    value={option}
-                    disabled={
-                      option ===
-                        "ENROLLED" &&
-                      status !==
-                        "ENROLLED"
-                    }
-                  >
-                    {
-                      leadStatusLabels[
-                        option
-                      ]
-                    }
-                  </option>
-                ),
-              )}
-            </Select>
-          </div>
+          <Select
+            id="lead-status"
+            value={status}
+            disabled={isEnrolled}
+            onChange={(event) => {
+              handleStatusSelected(
+                event.target
+                  .value as LeadStatus,
+              );
+            }}
+            className="w-full bg-white sm:w-48"
+          >
+            {leadStatuses.map(
+              (option) => (
+                <option
+                  key={option}
+                  value={option}
+                  disabled={
+                    option ===
+                      "ENROLLED" &&
+                    status !==
+                      "ENROLLED"
+                  }
+                >
+                  {
+                    leadStatusLabels[
+                      option
+                    ]
+                  }
+                </option>
+              ),
+            )}
+          </Select>
 
           {isEnrolled && (
             <p className="max-w-48 text-right text-xs leading-4 text-slate-500">

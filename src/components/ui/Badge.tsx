@@ -6,6 +6,7 @@ export type BadgeTone =
   | "slate"
   | "blue"
   | "violet"
+  | "cyan"
   | "amber"
   | "orange"
   | "green"
@@ -15,6 +16,7 @@ const toneClasses: Record<BadgeTone, string> = {
   slate: "bg-slate-100 text-slate-700 ring-slate-600/10",
   blue: "bg-blue-50 text-blue-700 ring-blue-600/10",
   violet: "bg-violet-50 text-violet-700 ring-violet-600/10",
+  cyan: "bg-cyan-50 text-cyan-700 ring-cyan-600/10",
   amber: "bg-amber-50 text-amber-700 ring-amber-600/10",
   orange: "bg-accent-50 text-accent-800 ring-accent-600/15",
   green: "bg-green-50 text-green-700 ring-green-600/10",

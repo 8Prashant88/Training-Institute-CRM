@@ -1,21 +1,4 @@
-/*
- * Verifies two things Day 17 explicitly calls for as "definition of
- * done": CSV export handles special characters safely (RFC 4180
- * quoting, formula-injection guarding, no data loss), and dashboard
- * metrics match manually verified database counts — not just "the
- * query runs," but "the number it returns is the number it should be."
- *
- * The CSV checks import src/lib/csv.ts directly (no "server-only"
- * guard on that file — it's a pure formatting module, not a database
- * one). The dashboard checks can't import dashboard-service.ts itself
- * for the same reason explained in verify-batch-enrollment-rules.ts
- * (the real "server-only" package throws outside Next's bundler), so
- * they run the same aggregation queries directly against the dev
- * database and compare the result against counts computed by hand
- * from data this script creates and controls.
- *
- * Run with: npx tsx scripts/verify-dashboard-metrics.ts
- */
+
 import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -63,7 +46,7 @@ function daysFromToday(offset: number): Date {
   return date;
 }
 
-// --- CSV escaping checks (pure functions, no database) ---
+
 
 function verifyCsvEscaping() {
   report(
@@ -182,11 +165,7 @@ async function verifyDashboardAggregation() {
     });
   }
 
-  // Known, hand-computed data set:
-  // - 2 leads created today (within the last week)
-  // - 1 lead created 20 days ago (outside the last week)
-  // - Sources: 2 WEBSITE, 1 REFERRAL
-  // - 1 of the 3 is ENROLLED (the 20-day-old one)
+
   const recentLeadA = await createQaLead({
     status: LeadStatus.NEW,
     source: LeadSource.WEBSITE,
@@ -203,9 +182,7 @@ async function verifyDashboardAggregation() {
     createdAt: daysFromToday(-20),
   });
 
-  // Enrollment for the enrolled lead, backdated to last month, to
-  // verify "enrollments this month" excludes it while "active
-  // enrollments" still counts it (status is independent of the date).
+
   const now = new Date();
   const lastMonthDate = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15, 12, 0, 0),
@@ -220,8 +197,7 @@ async function verifyDashboardAggregation() {
     },
   });
 
-  // A second, separate enrolled lead+enrollment dated THIS month, to
-  // verify "enrollments this month" correctly includes a current one.
+
   const thisMonthEnrolledLead = await createQaLead({
     status: LeadStatus.ENROLLED,
     source: LeadSource.WEBSITE,

@@ -8,6 +8,7 @@ import { submitBatchUpdate } from "@/actions/update-batch";
 import { submitBatchStatusUpdate } from "@/actions/update-batch-status";
 import Button from "@/components/ui/Button";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import Field from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -172,12 +173,13 @@ export default function BatchManagementControls({
     <div className="mt-4 border-t border-slate-100 pt-4">
       {isEditing ? (
         <div className="grid gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">
-              Title
-            </label>
-
+          <Field
+            id={`batch-title-${batchId}`}
+            label="Title"
+            error={fieldErrors.title}
+          >
             <Input
+              id={`batch-title-${batchId}`}
               value={values.title}
               disabled={isSaving}
               invalid={Boolean(fieldErrors.title)}
@@ -188,20 +190,20 @@ export default function BatchManagementControls({
                 }))
               }
             />
+          </Field>
 
-            {fieldErrors.title && (
-              <p role="alert" className="mt-1 text-xs text-red-600">
-                {fieldErrors.title}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">
-              Capacity
-            </label>
-
+          <Field
+            id={`batch-capacity-${batchId}`}
+            label="Capacity"
+            error={fieldErrors.capacity}
+            helpText={
+              fieldErrors.capacity
+                ? undefined
+                : `${enrolledCount} lead(s) already enrolled — capacity cannot go below that.`
+            }
+          >
             <Input
+              id={`batch-capacity-${batchId}`}
               type="number"
               min={1}
               max={500}
@@ -215,18 +217,7 @@ export default function BatchManagementControls({
                 }))
               }
             />
-
-            {fieldErrors.capacity ? (
-              <p role="alert" className="mt-1 text-xs text-red-600">
-                {fieldErrors.capacity}
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-slate-400">
-                {enrolledCount} lead(s) already enrolled — capacity cannot go
-                below that.
-              </p>
-            )}
-          </div>
+          </Field>
 
           <div className="flex justify-end gap-2">
             <Button

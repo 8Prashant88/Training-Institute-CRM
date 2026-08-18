@@ -15,6 +15,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { leadFormSchema } from "@/schemas/lead-schema";
 import { createLead } from "@/services/lead-service";
+import { notifyCounselorAssigned } from "@/services/notification-service";
 
 import {
   getCurrentAuthenticatedUser,
@@ -275,6 +276,26 @@ export async function submitLead(
         assignedCounselorId:
           finalCounselorId,
       });
+
+    /*
+     * Only when an admin explicitly assigns someone else — a counselor
+     * self-creating (and self-assigning) their own lead already knows
+     * about it, so no notification is needed there.
+     */
+    if (adminUser && finalCounselorId) {
+      try {
+        await notifyCounselorAssigned(
+          prisma,
+          lead,
+          finalCounselorId,
+        );
+      } catch (error) {
+        console.error(
+          "Lead assignment notification failed.",
+          { leadId: lead.id, error },
+        );
+      }
+    }
 
     revalidatePath(
       "/dashboard",

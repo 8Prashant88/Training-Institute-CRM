@@ -13,6 +13,7 @@ import {
 } from "@/schemas/lead-schema";
 import { createLead } from "@/services/lead-service";
 import { sendPublicInquiryNotification } from "@/services/email-service";
+import { notifyAdminsOfNewInquiry } from "@/services/notification-service";
 
 /*
  * This is the one endpoint in the CRM anyone on the internet can call
@@ -153,6 +154,15 @@ export async function submitPublicInquiry(
         leadId: lead.id,
         code: notificationResult.code,
         message: notificationResult.message,
+      });
+    }
+
+    try {
+      await notifyAdminsOfNewInquiry(prisma, lead, lead.interestedCourse);
+    } catch (error) {
+      console.error("Public inquiry in-app notification failed.", {
+        leadId: lead.id,
+        error,
       });
     }
 

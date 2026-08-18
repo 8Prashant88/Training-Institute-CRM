@@ -7,7 +7,7 @@ import type {
 import { cn } from "@/lib/cn";
 
 const baseFieldClasses =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-500/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-600/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
 
 const invalidClasses =
   "border-red-500 focus:border-red-600 focus:ring-red-500/25";

@@ -216,7 +216,7 @@ export default function PublicInquiryForm({
           onSubmit={handleSubmit}
         >
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-accent-600">
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent-700">
               Course inquiry
             </p>
 

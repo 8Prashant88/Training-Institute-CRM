@@ -6,6 +6,7 @@ import { Card, CardEyebrow } from "@/components/ui/Card";
 import StatCard from "@/components/ui/StatCard";
 import CreateCourseForm from "@/components/courses/CreateCourseForm";
 import CourseManagementCard from "@/components/courses/CourseManagementCard";
+import EmptyState from "@/components/EmptyState";
 import {
   listActiveCourses,
   listCoursesForManagement,
@@ -70,15 +71,10 @@ export default async function CoursesPage() {
             ))}
           </section>
         ) : (
-          <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-            <h2 className="text-lg font-semibold text-primary-900">
-              No courses yet
-            </h2>
-
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Add a course above to make it available for batches.
-            </p>
-          </section>
+          <EmptyState
+            title="No courses yet"
+            description="Add a course above to make it available for batches."
+          />
         )
       ) : activeOnlyCourses && activeOnlyCourses.length > 0 ? (
         <section
@@ -114,15 +110,10 @@ export default async function CoursesPage() {
           ))}
         </section>
       ) : (
-        <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-          <h2 className="text-lg font-semibold text-primary-900">
-            No active courses
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Add or activate a course in the database to display it here.
-          </p>
-        </section>
+        <EmptyState
+          title="No active courses"
+          description="Add or activate a course in the database to display it here."
+        />
       )}
     </div>
   );

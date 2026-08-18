@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 type DialogSize = "sm" | "md" | "lg";
 
@@ -31,6 +34,9 @@ export default function Dialog({
   className,
   children,
 }: DialogProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -39,6 +45,35 @@ export default function Dialog({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !panelRef.current) {
+        return;
+      }
+
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!panelRef.current.contains(active)) {
+        event.preventDefault();
+        first.focus();
       }
     }
 
@@ -48,6 +83,29 @@ export default function Dialog({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const autoFocused = panelRef.current?.querySelector<HTMLElement>("[autofocus]");
+    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
+      FOCUSABLE_SELECTOR,
+    );
+
+    (autoFocused ?? firstFocusable ?? panelRef.current)?.focus();
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [open]);
 
   if (!open) {
     return null;
@@ -63,12 +121,14 @@ export default function Dialog({
       />
 
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        tabIndex={-1}
         className={cn(
-          "relative max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6",
+          "relative max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-white p-5 shadow-xl outline-none sm:p-6",
           sizeClasses[size],
           className,
         )}

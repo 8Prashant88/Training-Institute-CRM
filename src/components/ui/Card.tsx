@@ -42,7 +42,7 @@ export function CardEyebrow({ className, children, ...props }: CardProps) {
   return (
     <p
       className={cn(
-        "text-xs font-semibold uppercase tracking-wider text-accent-600",
+        "text-xs font-semibold uppercase tracking-wider text-accent-700",
         className,
       )}
       {...props}

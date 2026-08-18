@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 
 import { submitBatch } from "@/actions/create-batch";
 import Button from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
 import {
   Input,
   Select,
@@ -152,14 +153,11 @@ export default function CreateBatchForm({
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <div>
-          <label
-            htmlFor="batch-course"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Course
-          </label>
-
+        <Field
+          id="batch-course"
+          label="Course"
+          error={fieldErrors.courseId}
+        >
           <Select
             id="batch-course"
             value={values.courseId}
@@ -188,25 +186,13 @@ export default function CreateBatchForm({
               </option>
             ))}
           </Select>
+        </Field>
 
-          {fieldErrors.courseId && (
-            <p
-              role="alert"
-              className="mt-1.5 text-sm text-red-600"
-            >
-              {fieldErrors.courseId}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="batch-title"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Batch title
-          </label>
-
+        <Field
+          id="batch-title"
+          label="Batch title"
+          error={fieldErrors.title}
+        >
           <Input
             id="batch-title"
             value={values.title}
@@ -222,25 +208,13 @@ export default function CreateBatchForm({
               )
             }
           />
+        </Field>
 
-          {fieldErrors.title && (
-            <p
-              role="alert"
-              className="mt-1.5 text-sm text-red-600"
-            >
-              {fieldErrors.title}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="batch-capacity"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Capacity
-          </label>
-
+        <Field
+          id="batch-capacity"
+          label="Capacity"
+          error={fieldErrors.capacity}
+        >
           <Input
             id="batch-capacity"
             type="number"
@@ -260,27 +234,15 @@ export default function CreateBatchForm({
               )
             }
           />
-
-          {fieldErrors.capacity && (
-            <p
-              role="alert"
-              className="mt-1.5 text-sm text-red-600"
-            >
-              {fieldErrors.capacity}
-            </p>
-          )}
-        </div>
+        </Field>
 
         <div className="hidden md:block" />
 
-        <div>
-          <label
-            htmlFor="batch-start-date"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Start date
-          </label>
-
+        <Field
+          id="batch-start-date"
+          label="Start date"
+          error={fieldErrors.startDate}
+        >
           <Input
             id="batch-start-date"
             type="date"
@@ -297,25 +259,13 @@ export default function CreateBatchForm({
               )
             }
           />
+        </Field>
 
-          {fieldErrors.startDate && (
-            <p
-              role="alert"
-              className="mt-1.5 text-sm text-red-600"
-            >
-              {fieldErrors.startDate}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="batch-end-date"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            End date
-          </label>
-
+        <Field
+          id="batch-end-date"
+          label="End date"
+          error={fieldErrors.endDate}
+        >
           <Input
             id="batch-end-date"
             type="date"
@@ -335,16 +285,7 @@ export default function CreateBatchForm({
               )
             }
           />
-
-          {fieldErrors.endDate && (
-            <p
-              role="alert"
-              className="mt-1.5 text-sm text-red-600"
-            >
-              {fieldErrors.endDate}
-            </p>
-          )}
-        </div>
+        </Field>
       </div>
 
       <div className="mt-5 flex justify-end">

@@ -7,6 +7,7 @@ import { CalendarClock } from "lucide-react";
 import { submitScheduleLeadFollowUp } from "@/actions/schedule-lead-follow-up";
 import Button, { buttonVariants } from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
+import Field from "@/components/ui/Field";
 import { Input, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { formatDate } from "@/lib/format";
@@ -143,14 +144,11 @@ export default function LeadFollowUpControl({
         </p>
 
         <div className="mt-5 grid gap-4">
-          <div>
-            <label
-              htmlFor="follow-up-date"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
-            >
-              Next follow-up
-            </label>
-
+          <Field
+            id="follow-up-date"
+            label="Next follow-up"
+            error={fieldErrors.nextFollowUpAt}
+          >
             <Input
               id="follow-up-date"
               type="datetime-local"
@@ -161,22 +159,9 @@ export default function LeadFollowUpControl({
                 setNextFollowUpValue(event.target.value)
               }
             />
+          </Field>
 
-            {fieldErrors.nextFollowUpAt && (
-              <p role="alert" className="mt-1.5 text-sm text-red-600">
-                {fieldErrors.nextFollowUpAt}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="follow-up-note"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
-            >
-              Note (optional)
-            </label>
-
+          <Field id="follow-up-note" label="Note (optional)">
             <Textarea
               id="follow-up-note"
               rows={3}
@@ -186,7 +171,7 @@ export default function LeadFollowUpControl({
               placeholder="What should the next call cover?"
               onChange={(event) => setNote(event.target.value)}
             />
-          </div>
+          </Field>
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -56,6 +56,12 @@ enum LeadActivityType {
   FOLLOW_UP_CLEARED
 }
 
+enum NotificationType {
+  NEW_INQUIRY
+  LEAD_ASSIGNED
+  LEAD_ENROLLED
+}
+
 model User {
   id         String   @id @default(uuid()) @db.Uuid
   authUserId String?  @unique @db.Uuid
@@ -69,6 +75,7 @@ model User {
   assignedLeads  Lead[]         @relation("AssignedCounselor")
   leadNotes      LeadNote[]     @relation("LeadNoteAuthor")
   leadActivities LeadActivity[] @relation("LeadActivityActor")
+  notifications  Notification[]
 }
 
 model Course {
@@ -102,6 +109,7 @@ model Lead {
   notes             LeadNote[]
   activities        LeadActivity[]
   enrollments       Enrollment[]
+  notifications     Notification[]
   inquiryMessage    String?        @db.Text
 
   @@index([status])
@@ -195,4 +203,28 @@ model Enrollment {
   @@index([batchId])
   @@index([status])
   @@index([enrolledAt])
+}
+
+/*
+ * leadId is nullable because a notification isn't defined as
+ * lead-specific — but all three current notification types (new
+ * inquiry, lead assigned, lead enrolled) happen to relate to one, so
+ * it's populated in practice and used for click-through in the UI.
+ */
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String
+  body      String
+  leadId    String?          @db.Uuid
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, readAt])
+  @@index([leadId])
+  @@index([createdAt])
 }

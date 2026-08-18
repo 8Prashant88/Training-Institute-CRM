@@ -43,7 +43,7 @@ export default function SidebarNav({
             onClick={onNavigate}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg border-l-2 px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500",
+              "flex items-center gap-3 rounded-lg border-l-2 px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600",
               isActive
                 ? "border-accent-500 bg-primary-50 text-primary-900"
                 : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900",

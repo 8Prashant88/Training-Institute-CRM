@@ -119,7 +119,7 @@ export default function PersonRowActions({
         aria-label={`Actions for ${person.fullName}`}
         disabled={isPending}
         onClick={() => setOpen((current) => !current)}
-        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <MoreHorizontal aria-hidden="true" className="size-4" />
       </button>

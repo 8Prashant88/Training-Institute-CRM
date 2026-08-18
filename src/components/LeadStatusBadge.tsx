@@ -1,4 +1,5 @@
-import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Badge from "@/components/ui/Badge";
+import { leadStatusTones } from "@/lib/lead-status";
 import { leadStatusLabels, type LeadStatus } from "@/types/lead";
 
 type LeadStatusBadgeProps = {
@@ -6,21 +7,12 @@ type LeadStatusBadgeProps = {
   className?: string;
 };
 
-const statusTones: Record<LeadStatus, BadgeTone> = {
-  NEW: "blue",
-  CONTACTED: "violet",
-  INTERESTED: "amber",
-  FOLLOW_UP: "orange",
-  ENROLLED: "green",
-  LOST: "red",
-};
-
 export default function LeadStatusBadge({
   status,
   className,
 }: LeadStatusBadgeProps) {
   return (
-    <Badge tone={statusTones[status]} dot className={className}>
+    <Badge tone={leadStatusTones[status]} dot className={className}>
       {leadStatusLabels[status]}
     </Badge>
   );

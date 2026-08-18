@@ -10,6 +10,7 @@ import Badge from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import Field from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import type { CourseStatus } from "@/generated/prisma/client";
@@ -164,33 +165,36 @@ export default function CourseManagementCard({
     <Card className="flex flex-col p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Training program
-          </p>
-
           {isEditing ? (
-            <Input
-              value={values.title}
-              disabled={isSaving}
-              invalid={Boolean(fieldErrors.title)}
-              className="mt-1"
-              onChange={(event) =>
-                setValues((current) => ({
-                  ...current,
-                  title: event.target.value,
-                }))
-              }
-            />
+            <Field
+              id={`course-title-${course.id}`}
+              label="Training program"
+              error={fieldErrors.title}
+              className="mt-1 grid gap-2"
+            >
+              <Input
+                id={`course-title-${course.id}`}
+                value={values.title}
+                disabled={isSaving}
+                invalid={Boolean(fieldErrors.title)}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
+                }
+              />
+            </Field>
           ) : (
-            <h2 className="mt-1 text-lg font-semibold text-primary-900">
-              {course.title}
-            </h2>
-          )}
+            <>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Training program
+              </p>
 
-          {fieldErrors.title && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
-              {fieldErrors.title}
-            </p>
+              <h2 className="mt-1 text-lg font-semibold text-primary-900">
+                {course.title}
+              </h2>
+            </>
           )}
         </div>
 
@@ -201,15 +205,18 @@ export default function CourseManagementCard({
 
       <dl className="mt-5 text-sm">
         <div>
-          <dt className="text-xs text-slate-400">Duration</dt>
-
           {isEditing ? (
-            <>
+            <Field
+              id={`course-duration-${course.id}`}
+              label="Duration"
+              error={fieldErrors.duration}
+              className="grid gap-2"
+            >
               <Input
+                id={`course-duration-${course.id}`}
                 value={values.duration}
                 disabled={isSaving}
                 invalid={Boolean(fieldErrors.duration)}
-                className="mt-1"
                 onChange={(event) =>
                   setValues((current) => ({
                     ...current,
@@ -217,17 +224,15 @@ export default function CourseManagementCard({
                   }))
                 }
               />
-
-              {fieldErrors.duration && (
-                <p role="alert" className="mt-1 text-sm text-red-600">
-                  {fieldErrors.duration}
-                </p>
-              )}
-            </>
+            </Field>
           ) : (
-            <dd className="mt-1 font-medium text-slate-700">
-              {course.duration}
-            </dd>
+            <>
+              <dt className="text-xs text-slate-400">Duration</dt>
+
+              <dd className="mt-1 font-medium text-slate-700">
+                {course.duration}
+              </dd>
+            </>
           )}
         </div>
 

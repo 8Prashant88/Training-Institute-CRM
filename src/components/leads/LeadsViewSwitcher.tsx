@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { Select } from "@/components/ui/Input";
+import { cn } from "@/lib/cn";
 
 export type LeadsViewMode = "table" | "board" | "followups";
 
@@ -13,6 +13,12 @@ type LeadsViewSwitcherProps = {
   boardView: ReactNode;
   followUpsView: ReactNode;
 };
+
+const VIEW_OPTIONS: { key: LeadsViewMode; label: string }[] = [
+  { key: "table", label: "Table view" },
+  { key: "board", label: "Board view" },
+  { key: "followups", label: "Follow-ups" },
+];
 
 export default function LeadsViewSwitcher({
   view,
@@ -41,23 +47,32 @@ export default function LeadsViewSwitcher({
 
   return (
     <div className="grid min-w-0 gap-4">
-      <div className="flex justify-end">
-        <label htmlFor="leads-view-select" className="sr-only">
-          Leads view
-        </label>
+      <div
+        role="tablist"
+        aria-label="Leads view"
+        className="flex gap-1 overflow-x-auto border-b border-slate-200"
+      >
+        {VIEW_OPTIONS.map((option) => {
+          const isActive = option.key === view;
 
-        <Select
-          id="leads-view-select"
-          value={view}
-          className="w-auto bg-white"
-          onChange={(event) =>
-            navigateToView(event.target.value as LeadsViewMode)
-          }
-        >
-          <option value="table">Table view</option>
-          <option value="board">Board view</option>
-          <option value="followups">Follow-ups</option>
-        </Select>
+          return (
+            <button
+              key={option.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => navigateToView(option.key)}
+              className={cn(
+                "shrink-0 border-b-2 px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2",
+                isActive
+                  ? "border-primary-900 text-primary-900"
+                  : "border-transparent text-slate-500 hover:text-slate-800",
+              )}
+            >
+              {option.label}
+            </button>
+          );
+        })}
       </div>
 
       {view === "table" && tableView}

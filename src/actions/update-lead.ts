@@ -9,6 +9,7 @@ import { leadFormSchema } from "@/schemas/lead-schema";
 import { canAccessLead, isAdmin } from "@/lib/authorization";
 
 import { getCurrentAuthenticatedUser } from "@/services/user-service";
+import { notifyCounselorAssigned } from "@/services/notification-service";
 
 const updateLeadSchema = leadFormSchema
   .omit({
@@ -236,6 +237,32 @@ assignedCounselorId
         assignedCounselorId: true,
       },
     });
+
+    /*
+     * A genuine reassignment: an admin changed who this lead is
+     * assigned to, versus resubmitting the form with the same
+     * counselor already on it (compared against the value read before
+     * this update, not against the incoming form's default).
+     */
+    if (
+      isAdmin(currentUser) &&
+      updatedLead.assignedCounselorId &&
+      updatedLead.assignedCounselorId !==
+        existingLead.assignedCounselorId
+    ) {
+      try {
+        await notifyCounselorAssigned(
+          prisma,
+          updatedLead,
+          updatedLead.assignedCounselorId,
+        );
+      } catch (error) {
+        console.error("Lead reassignment notification failed.", {
+          leadId: updatedLead.id,
+          error,
+        });
+      }
+    }
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/leads");

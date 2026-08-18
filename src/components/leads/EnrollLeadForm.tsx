@@ -20,6 +20,7 @@ import { submitCompleteEnrollment } from "@/actions/complete-enrollment";
 import { submitDropEnrollment } from "@/actions/drop-enrollment";
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
+import Field from "@/components/ui/Field";
 import { Select, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { formatDate } from "@/lib/format";
@@ -253,22 +254,17 @@ function ActiveEnrollmentCard({
         </p>
 
         <div className="mt-5">
-          <label
-            htmlFor="drop-reason"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Reason (optional)
-          </label>
-
-          <Textarea
-            id="drop-reason"
-            rows={3}
-            maxLength={500}
-            value={dropReason}
-            disabled={isDropping}
-            placeholder="e.g. Relocated, scheduling conflict, switching courses..."
-            onChange={(event) => setDropReason(event.target.value)}
-          />
+          <Field id="drop-reason" label="Reason (optional)">
+            <Textarea
+              id="drop-reason"
+              rows={3}
+              maxLength={500}
+              value={dropReason}
+              disabled={isDropping}
+              placeholder="e.g. Relocated, scheduling conflict, switching courses..."
+              onChange={(event) => setDropReason(event.target.value)}
+            />
+          </Field>
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -417,57 +413,41 @@ function EnrollmentPickerForm({
       )}
 
       <div className="mt-5">
-        <label
-          htmlFor="enrollment-batch"
-          className="mb-1.5 block text-sm font-medium text-slate-700"
-        >
-          Available batch
-        </label>
-
-        <Select
+        <Field
           id="enrollment-batch"
-          value={batchId}
-          disabled={
-            isSubmitting ||
-            batches.length === 0
-          }
-          invalid={Boolean(batchError)}
-          aria-describedby={
-            batchError
-              ? "enrollment-batch-error"
-              : undefined
-          }
-          onChange={(event) => {
-            setBatchId(event.target.value);
-            setBatchError(undefined);
-            setGeneralError(undefined);
-          }}
+          label="Available batch"
+          error={batchError}
         >
-          <option value="">
-            Select a batch
-          </option>
-
-          {batches.map((batch) => (
-            <option
-              key={batch.id}
-              value={batch.id}
-            >
-              {batch.courseTitle} —{" "}
-              {batch.title} —{" "}
-              {batch.remainingSeats} seats left
-            </option>
-          ))}
-        </Select>
-
-        {batchError && (
-          <p
-            id="enrollment-batch-error"
-            role="alert"
-            className="mt-1.5 text-sm text-red-600"
+          <Select
+            id="enrollment-batch"
+            value={batchId}
+            disabled={
+              isSubmitting ||
+              batches.length === 0
+            }
+            invalid={Boolean(batchError)}
+            onChange={(event) => {
+              setBatchId(event.target.value);
+              setBatchError(undefined);
+              setGeneralError(undefined);
+            }}
           >
-            {batchError}
-          </p>
-        )}
+            <option value="">
+              Select a batch
+            </option>
+
+            {batches.map((batch) => (
+              <option
+                key={batch.id}
+                value={batch.id}
+              >
+                {batch.courseTitle} —{" "}
+                {batch.title} —{" "}
+                {batch.remainingSeats} seats left
+              </option>
+            ))}
+          </Select>
+        </Field>
       </div>
 
       {selectedBatch && (

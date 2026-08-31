@@ -10,7 +10,10 @@ import {
 } from "lucide-react";
 
 import ChangeLeadStatusDialog from "@/components/leads/ChangeLeadStatusDialog";
+import LeadFavoriteToggle from "@/components/leads/LeadFavoriteToggle";
 import LeadFollowUpControl from "@/components/leads/LeadFollowUpControl";
+import LeadPriorityControl from "@/components/leads/LeadPriorityControl";
+import LeadTagsControl from "@/components/leads/LeadTagsControl";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import {
@@ -23,14 +26,19 @@ import {
   leadStatuses,
   type Lead,
   type LeadStatus,
+  type LeadTag,
 } from "@/types/lead";
 
 type LeadDetailHeaderProps = {
   lead: Lead;
+  allTags: LeadTag[];
+  canCreateTags: boolean;
 };
 
 export default function LeadDetailHeader({
   lead,
+  allTags,
+  canCreateTags,
 }: LeadDetailHeaderProps) {
   const router = useRouter();
 
@@ -64,8 +72,14 @@ export default function LeadDetailHeader({
           />
 
           <div className="min-w-0">
-            <h1 className="break-words text-2xl font-bold text-primary-900 sm:text-3xl">
+            <h1 className="flex flex-wrap items-center gap-2 break-words text-2xl font-bold text-primary-900 sm:text-3xl">
               {lead.fullName}
+
+              <LeadFavoriteToggle
+                leadId={lead.id}
+                leadName={lead.fullName}
+                isFavorited={Boolean(lead.isFavorited)}
+              />
             </h1>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
@@ -95,10 +109,24 @@ export default function LeadDetailHeader({
                 </Badge>
               )}
             </div>
+
+            <div className="mt-3">
+              <LeadTagsControl
+                leadId={lead.id}
+                tags={lead.tags ?? []}
+                allTags={allTags}
+                canCreateTags={canCreateTags}
+              />
+            </div>
           </div>
         </div>
 
         <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+          <LeadPriorityControl
+            leadId={lead.id}
+            priority={lead.priority ?? null}
+          />
+
           <label
             className="text-xs font-medium text-slate-500"
             htmlFor="lead-status"

@@ -62,11 +62,18 @@ enum NotificationType {
   LEAD_ENROLLED
 }
 
+enum LeadPriority {
+  HOT
+  WARM
+  COLD
+}
+
 model User {
   id         String   @id @default(uuid()) @db.Uuid
   authUserId String?  @unique @db.Uuid
   fullName   String
   email      String   @unique
+  avatarUrl  String?
   role       UserRole @default(COUNSELOR)
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
@@ -76,6 +83,8 @@ model User {
   leadNotes      LeadNote[]     @relation("LeadNoteAuthor")
   leadActivities LeadActivity[] @relation("LeadActivityActor")
   notifications  Notification[]
+  savedViews     SavedView[]    @relation("SavedViewOwner")
+  favoriteLeads  Lead[]         @relation("LeadFavorites")
 }
 
 model Course {
@@ -101,6 +110,7 @@ model Lead {
   assignedCounselorId String?    @db.Uuid
   nextFollowUpAt      DateTime?
   archivedAt          DateTime?
+  priority            LeadPriority?
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
@@ -110,6 +120,8 @@ model Lead {
   activities        LeadActivity[]
   enrollments       Enrollment[]
   notifications     Notification[]
+  tags              Tag[]
+  favoritedBy       User[]         @relation("LeadFavorites")
   inquiryMessage    String?        @db.Text
 
   @@index([status])
@@ -118,6 +130,21 @@ model Lead {
   @@index([nextFollowUpAt])
   @@index([createdAt])
   @@index([archivedAt])
+  @@index([priority])
+
+  /*
+   * GIN trigram indexes so the `contains`/ILIKE search in
+   * lead-list-service.ts can use an index instead of a sequential
+   * scan. Declared here (not hand-written-only) after an earlier
+   * hand-written-SQL attempt got silently dropped by `prisma migrate
+   * dev`'s drift reconciliation — anything not represented in
+   * schema.prisma is "drift" as far as that command is concerned, so
+   * these have to be real `@@index` entries to survive future
+   * migrations, not just SQL in a migration file.
+   */
+  @@index([fullName(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model LeadNote {
@@ -227,4 +254,39 @@ model Notification {
   @@index([userId, readAt])
   @@index([leadId])
   @@index([createdAt])
+}
+
+/*
+ * Org-wide reusable labels, not per-lead free text — renaming or
+ * deleting a tag is a single row update here rather than a fan-out
+ * rewrite of every lead that carries it.
+ */
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  leads Lead[]
+}
+
+/*
+ * A personal, per-user shortcut for a lead-list filter combination —
+ * not shared/team views in v1. `query` stores the same shape as
+ * LeadListQuery (lib/lead-list-query.ts) directly as JSON, so applying
+ * a saved view is just createLeadListSearchParams(view.query) — no new
+ * serialization code. If a referenced course/counselor/tag id is later
+ * deleted, the saved view still works; it just matches zero rows.
+ */
+model SavedView {
+  id        String   @id @default(uuid()) @db.Uuid
+  ownerId   String   @db.Uuid
+  name      String
+  query     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation("SavedViewOwner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
 }

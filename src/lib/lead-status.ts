@@ -1,5 +1,5 @@
 import type { BadgeTone } from "@/components/ui/Badge";
-import type { LeadStatus } from "@/types/lead";
+import type { LeadPriority, LeadStatus } from "@/types/lead";
 
 
 export const leadStatusTones: Record<LeadStatus, BadgeTone> = {
@@ -9,4 +9,10 @@ export const leadStatusTones: Record<LeadStatus, BadgeTone> = {
   FOLLOW_UP: "amber",
   ENROLLED: "green",
   LOST: "red",
+};
+
+export const leadPriorityTones: Record<LeadPriority, BadgeTone> = {
+  HOT: "red",
+  WARM: "amber",
+  COLD: "cyan",
 };

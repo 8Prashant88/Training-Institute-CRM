@@ -17,9 +17,23 @@ export type AuthenticatedCrmUser = {
   authUserId: string;
   fullName: string;
   email: string;
+  avatarUrl: string | null;
   role: UserRole;
   isActive: boolean;
 };
+
+export type ProfileUpdateErrorCode = "USER_NOT_FOUND";
+
+export class ProfileUpdateError extends Error {
+  readonly code: ProfileUpdateErrorCode;
+
+  constructor(code: ProfileUpdateErrorCode, message: string) {
+    super(message);
+
+    this.name = "ProfileUpdateError";
+    this.code = code;
+  }
+}
 
 export async function listActiveCounselors(): Promise<
   CounselorOption[]
@@ -92,6 +106,7 @@ export async function findOrLinkAuthenticatedUser(
         authUserId: true,
         fullName: true,
         email: true,
+        avatarUrl: true,
         role: true,
         isActive: true,
       },
@@ -123,6 +138,7 @@ export async function findOrLinkAuthenticatedUser(
         authUserId: true,
         fullName: true,
         email: true,
+        avatarUrl: true,
         role: true,
         isActive: true,
       },
@@ -158,6 +174,7 @@ export async function findOrLinkAuthenticatedUser(
         authUserId: true,
         fullName: true,
         email: true,
+        avatarUrl: true,
         role: true,
         isActive: true,
       },
@@ -197,6 +214,7 @@ export async function getCurrentAuthenticatedUser(): Promise<
       authUserId: true,
       fullName: true,
       email: true,
+      avatarUrl: true,
       role: true,
       isActive: true,
     },
@@ -215,7 +233,106 @@ export async function getCurrentAuthenticatedUser(): Promise<
     authUserId: crmUser.authUserId,
     fullName: crmUser.fullName,
     email: crmUser.email,
+    avatarUrl: crmUser.avatarUrl,
     role: crmUser.role,
     isActive: crmUser.isActive,
   };
+}
+
+function toAuthenticatedCrmUser(user: {
+  id: string;
+  authUserId: string | null;
+  fullName: string;
+  email: string;
+  avatarUrl: string | null;
+  role: UserRole;
+  isActive: boolean;
+}): AuthenticatedCrmUser {
+  if (!user.authUserId) {
+    throw new ProfileUpdateError(
+      "USER_NOT_FOUND",
+      "We couldn't find your user account.",
+    );
+  }
+
+  return {
+    ...user,
+    authUserId: user.authUserId,
+  };
+}
+
+export async function updateUserFullName(
+  userId: string,
+  fullName: string,
+): Promise<AuthenticatedCrmUser> {
+  try {
+    const updated = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+
+      data: {
+        fullName,
+      },
+
+      select: {
+        id: true,
+        authUserId: true,
+        fullName: true,
+        email: true,
+        avatarUrl: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    return toAuthenticatedCrmUser(updated);
+  } catch (error) {
+    if (error instanceof ProfileUpdateError) {
+      throw error;
+    }
+
+    throw new ProfileUpdateError(
+      "USER_NOT_FOUND",
+      "We couldn't find your user account.",
+    );
+  }
+}
+
+export async function updateUserAvatarUrl(
+  userId: string,
+  avatarUrl: string | null,
+): Promise<AuthenticatedCrmUser> {
+  try {
+    const updated = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+
+      data: {
+        avatarUrl,
+      },
+
+      select: {
+        id: true,
+        authUserId: true,
+        fullName: true,
+        email: true,
+        avatarUrl: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    return toAuthenticatedCrmUser(updated);
+  } catch (error) {
+    if (error instanceof ProfileUpdateError) {
+      throw error;
+    }
+
+    throw new ProfileUpdateError(
+      "USER_NOT_FOUND",
+      "We couldn't find your user account.",
+    );
+  }
 }

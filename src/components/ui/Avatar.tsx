@@ -42,15 +42,33 @@ const sizeClasses = {
 
 type AvatarProps = {
   name: string;
+  imageUrl?: string | null;
   size?: keyof typeof sizeClasses;
   className?: string;
 };
 
 export default function Avatar({
   name,
+  imageUrl,
   size = "md",
   className,
 }: AvatarProps) {
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageUrl}
+        alt=""
+        aria-hidden="true"
+        className={cn(
+          "inline-flex shrink-0 rounded-full object-cover",
+          sizeClasses[size],
+          className,
+        )}
+      />
+    );
+  }
+
   return (
     <span
       aria-hidden="true"

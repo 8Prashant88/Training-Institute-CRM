@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  LeadPriority as DatabaseLeadPriority,
   LeadSource as DatabaseLeadSource,
   LeadStatus as DatabaseLeadStatus,
   Prisma,
@@ -8,9 +9,10 @@ import {
 } from "@/generated/prisma/client";
 
 import {
-  LEAD_PAGE_SIZE,
   type LeadListQuery,
 } from "@/lib/lead-list-query";
+
+import { startOfUtcDay } from "@/lib/lead-status-rules";
 
 import { prisma } from "@/lib/prisma";
 
@@ -81,6 +83,7 @@ const leadListSelect = {
   status: true,
   createdAt: true,
   nextFollowUpAt: true,
+  priority: true,
 
   interestedCourse: {
     select: {
@@ -93,6 +96,19 @@ const leadListSelect = {
       fullName: true,
     },
   },
+
+  tags: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+
+  favoritedBy: {
+    select: {
+      id: true,
+    },
+  },
 } satisfies Prisma.LeadSelect;
 
 type DatabaseLeadListRow = Prisma.LeadGetPayload<{
@@ -101,6 +117,7 @@ type DatabaseLeadListRow = Prisma.LeadGetPayload<{
 
 function mapDatabaseLeadToListItem(
   lead: DatabaseLeadListRow,
+  currentUserId: string,
 ): LeadListItem {
   return {
     id: lead.id,
@@ -113,7 +130,79 @@ function mapDatabaseLeadToListItem(
     assignedTo: lead.assignedCounselor?.fullName ?? "Unassigned",
     createdAt: lead.createdAt.toISOString(),
     nextFollowUpAt: lead.nextFollowUpAt?.toISOString() ?? null,
+    priority: lead.priority,
+    tags: lead.tags,
+
+    isFavorited: lead.favoritedBy.some(
+      (user) => user.id === currentUserId,
+    ),
   };
+}
+
+/**
+ * `from`/`to` are calendar-day (`YYYY-MM-DD`) strings — `to` is
+ * inclusive, so its upper bound is exclusive at the start of the
+ * *next* day rather than an exact-midnight `lte`.
+ */
+function dateRangeFilter(
+  from: string | undefined,
+  to: string | undefined,
+): Prisma.DateTimeFilter | undefined {
+  if (!from && !to) {
+    return undefined;
+  }
+
+  const range: Prisma.DateTimeFilter = {};
+
+  if (from) {
+    range.gte = startOfUtcDay(new Date(`${from}T00:00:00.000Z`));
+  }
+
+  if (to) {
+    const startOfToDay = startOfUtcDay(
+      new Date(`${to}T00:00:00.000Z`),
+    );
+
+    range.lt = new Date(
+      startOfToDay.getTime() + 24 * 60 * 60 * 1000,
+    );
+  }
+
+  return range;
+}
+
+/**
+ * Combines the follow-up date range with the "Overdue" quick segment
+ * — both constrain `nextFollowUpAt`, so they have to be merged into
+ * one filter object rather than two separate `nextFollowUpAt` keys
+ * (a second key would silently replace the first via object spread).
+ */
+function buildNextFollowUpAtFilter(
+  query: LeadListQuery,
+): Prisma.DateTimeNullableFilter | undefined {
+  const range = dateRangeFilter(
+    query.followUpFrom,
+    query.followUpTo,
+  );
+
+  const filter: Prisma.DateTimeNullableFilter = {
+    ...range,
+  };
+
+  let hasConstraint = Boolean(range);
+
+  if (query.followUpState === "OVERDUE") {
+    const overdueBound = startOfUtcDay(new Date());
+
+    filter.lt =
+      filter.lt && filter.lt < overdueBound
+        ? filter.lt
+        : overdueBound;
+
+    hasConstraint = true;
+  }
+
+  return hasConstraint ? filter : undefined;
 }
 
 /*
@@ -238,6 +327,14 @@ function buildBaseWhere(
           };
   }
 
+  const createdAtFilter = dateRangeFilter(
+    query.createdFrom,
+    query.createdTo,
+  );
+
+  const nextFollowUpAtFilter =
+    buildNextFollowUpAtFilter(query);
+
   return {
     archivedAt: null,
 
@@ -257,6 +354,65 @@ function buildBaseWhere(
           interestedCourseId:
             query.courseId,
         }
+      : {}),
+
+    ...(query.priority
+      ? {
+          priority:
+            query.priority as DatabaseLeadPriority,
+        }
+      : {}),
+
+    ...(query.tagId
+      ? {
+          tags: {
+            some: {
+              id: query.tagId,
+            },
+          },
+        }
+      : {}),
+
+    ...(query.favoritesOnly
+      ? {
+          favoritedBy: {
+            some: {
+              id: currentUser.id,
+            },
+          },
+        }
+      : {}),
+
+    /*
+     * "To call" is a broader stand-in for status while status itself
+     * stays out of buildBaseWhere (see buildLeadListWhere below) —
+     * selecting an exact status pill on top of this segment replaces
+     * it rather than intersecting, which is the right behavior: a
+     * specific pipeline stage is more precise than the segment.
+     */
+    ...(query.statusGroup === "TO_CALL"
+      ? {
+          status: {
+            in: [
+              DatabaseLeadStatus.NEW,
+              DatabaseLeadStatus.CONTACTED,
+            ],
+          },
+        }
+      : {}),
+
+    ...(query.followUpState === "OVERDUE"
+      ? {
+          status: DatabaseLeadStatus.FOLLOW_UP,
+        }
+      : {}),
+
+    ...(createdAtFilter
+      ? { createdAt: createdAtFilter }
+      : {}),
+
+    ...(nextFollowUpAtFilter
+      ? { nextFollowUpAt: nextFollowUpAtFilter }
       : {}),
 
     ...(searchConditions.length > 0
@@ -416,7 +572,7 @@ export async function listLeadPage(
           1,
           Math.ceil(
             totalCount /
-              LEAD_PAGE_SIZE,
+              query.pageSize,
           ),
         );
 
@@ -473,10 +629,10 @@ export async function listLeadPage(
 
           skip:
             (page - 1) *
-            LEAD_PAGE_SIZE,
+            query.pageSize,
 
           take:
-            LEAD_PAGE_SIZE,
+            query.pageSize,
         });
 
       const statusCounts =
@@ -503,7 +659,9 @@ export async function listLeadPage(
       }
 
       const items: LeadListItem[] =
-        databaseLeads.map(mapDatabaseLeadToListItem);
+        databaseLeads.map((lead) =>
+          mapDatabaseLeadToListItem(lead, currentUser.id),
+        );
 
       return {
         items,
@@ -514,7 +672,7 @@ export async function listLeadPage(
           page,
 
           pageSize:
-            LEAD_PAGE_SIZE,
+            query.pageSize,
 
           totalCount,
 
@@ -572,5 +730,7 @@ export async function listLeadsForExport(
     take: MAX_EXPORT_ROWS,
   });
 
-  return databaseLeads.map(mapDatabaseLeadToListItem);
+  return databaseLeads.map((lead) =>
+    mapDatabaseLeadToListItem(lead, currentUser.id),
+  );
 }

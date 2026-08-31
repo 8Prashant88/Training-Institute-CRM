@@ -1,10 +1,16 @@
 "use client";
 
-import { CalendarClock } from "lucide-react";
+import { AlertTriangle, CalendarClock } from "lucide-react";
 
+import LeadFavoriteToggle from "@/components/leads/LeadFavoriteToggle";
+import Badge from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Input";
+import { cn } from "@/lib/cn";
 import { formatRelativeDate } from "@/lib/format";
+import { leadPriorityTones } from "@/lib/lead-status";
+import { isFollowUpOverdue } from "@/lib/lead-status-rules";
 import {
+  leadPriorityLabels,
   leadStatusLabels,
   leadStatuses,
   type LeadStatus,
@@ -26,14 +32,39 @@ export default function LeadPipelineCard({
 }: LeadPipelineCardProps) {
   const isEnrolled = lead.status === "ENROLLED";
 
+  const overdue = isFollowUpOverdue(lead.status, lead.nextFollowUpAt);
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <a
-        href={`/dashboard/leads/${lead.id}`}
-        className="block truncate text-sm font-medium text-slate-900 hover:underline"
-      >
-        {lead.fullName}
-      </a>
+    <div
+      className={cn(
+        "rounded-lg border bg-white p-3 shadow-sm",
+        overdue ? "border-red-200" : "border-slate-200",
+      )}
+    >
+      <div className="flex items-center gap-1">
+        <a
+          href={`/dashboard/leads/${lead.id}`}
+          className="block min-w-0 flex-1 truncate text-sm font-medium text-slate-900 hover:underline"
+        >
+          {lead.fullName}
+        </a>
+
+        {lead.priority && (
+          <Badge
+            tone={leadPriorityTones[lead.priority]}
+            className="shrink-0 px-1.5 py-0 text-[10px]"
+          >
+            {leadPriorityLabels[lead.priority]}
+          </Badge>
+        )}
+
+        <LeadFavoriteToggle
+          leadId={lead.id}
+          leadName={lead.fullName}
+          isFavorited={Boolean(lead.isFavorited)}
+          className="-mr-1.5 shrink-0 p-1"
+        />
+      </div>
 
       <p className="mt-0.5 truncate text-xs text-slate-500">
         {lead.assignedTo}
@@ -41,11 +72,19 @@ export default function LeadPipelineCard({
 
       {lead.nextFollowUpAt && (
         <p
-          className="mt-2 flex items-center gap-1 text-xs text-slate-500"
+          className={cn(
+            "mt-2 flex items-center gap-1 text-xs font-medium",
+            overdue ? "text-red-600" : "text-slate-500",
+          )}
           title={new Date(lead.nextFollowUpAt).toLocaleString()}
           suppressHydrationWarning
         >
-          <CalendarClock aria-hidden="true" className="size-3.5" />
+          {overdue ? (
+            <AlertTriangle aria-hidden="true" className="size-3.5" />
+          ) : (
+            <CalendarClock aria-hidden="true" className="size-3.5" />
+          )}
+          {overdue ? "Overdue · " : ""}
           {formatRelativeDate(lead.nextFollowUpAt)}
         </p>
       )}

@@ -41,6 +41,21 @@ export const leadSources: LeadSource[] = [
   "Event",
 ];
 
+export type LeadPriority = "HOT" | "WARM" | "COLD";
+
+export const leadPriorities: LeadPriority[] = ["HOT", "WARM", "COLD"];
+
+export const leadPriorityLabels: Record<LeadPriority, string> = {
+  HOT: "Hot",
+  WARM: "Warm",
+  COLD: "Cold",
+};
+
+export type LeadTag = {
+  id: string;
+  name: string;
+};
+
 export type Lead = {
   id: string;
   fullName: string;
@@ -53,4 +68,7 @@ export type Lead = {
   createdAt: string;
 
   nextFollowUpAt?: string | null;
+  priority?: LeadPriority | null;
+  tags?: LeadTag[];
+  isFavorited?: boolean;
 };

@@ -28,6 +28,7 @@ export default async function DashboardLayout({
       currentUser={{
         fullName: currentUser.fullName,
         email: currentUser.email,
+        avatarUrl: currentUser.avatarUrl,
         role: currentUser.role,
       }}
       initialUnreadCount={initialUnreadCount}

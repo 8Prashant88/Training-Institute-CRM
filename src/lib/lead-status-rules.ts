@@ -141,3 +141,37 @@ export function isFollowUpDateOnOrAfterToday(
 
   return candidateDay >= today;
 }
+
+/**
+ * Midnight UTC on `now`'s calendar day — the shared boundary for every
+ * "is this due today / overdue" comparison in the app (follow-up date
+ * validation here, the Today/Overdue split in lead-followups-service.ts,
+ * and the overdue badge shown on lead lists/cards).
+ */
+export function startOfUtcDay(now: Date = new Date()): Date {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+}
+
+/**
+ * A lead only counts as overdue while it's still sitting in FOLLOW_UP —
+ * once it moves to any other status the scheduled date is history, not
+ * an open commitment.
+ */
+export function isFollowUpOverdue(
+  status: string,
+  nextFollowUpAt: string | Date | null,
+  now: Date = new Date(),
+): boolean {
+  if (status !== "FOLLOW_UP" || !nextFollowUpAt) {
+    return false;
+  }
+
+  const date =
+    typeof nextFollowUpAt === "string"
+      ? new Date(nextFollowUpAt)
+      : nextFollowUpAt;
+
+  return date < startOfUtcDay(now);
+}

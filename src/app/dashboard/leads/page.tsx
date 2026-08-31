@@ -38,6 +38,14 @@ import {
 } from "@/services/lead-list-service";
 
 import {
+  listTags,
+} from "@/services/tag-service";
+
+import {
+  listSavedViews,
+} from "@/services/saved-view-service";
+
+import {
   listLeadPipeline,
 } from "@/services/lead-pipeline-service";
 
@@ -66,9 +74,19 @@ const LEAD_QUERY_KEYS = [
   "source",
   "counselor",
   "course",
+  "priority",
+  "tag",
+  "sg",
+  "fu",
+  "fav",
+  "createdFrom",
+  "createdTo",
+  "followUpFrom",
+  "followUpTo",
   "sort",
   "dir",
   "page",
+  "pageSize",
 ] as const;
 
 const LEADS_VIEW_VALUES = [
@@ -224,6 +242,8 @@ export default async function LeadsPage({
     courseFilterOptions,
     activeCounselors,
     counselorFilterOptions,
+    tagFilterOptions,
+    savedViews,
     pipelineColumns,
     followUps,
   ] = await Promise.all([
@@ -255,6 +275,14 @@ export default async function LeadsPage({
     canManageAssignments
       ? listCounselorsForLeadFilters()
       : Promise.resolve([]),
+
+    /*
+     * Every authenticated user can filter/attach tags, even though
+     * only an admin can create one.
+     */
+    listTags(),
+
+    listSavedViews(currentUser.id),
 
     /*
      * Board view. Scoped the same way as the table (counselor filter,
@@ -375,6 +403,18 @@ if (
 
             counselorFilterOptions={
               counselorFilterOptions
+            }
+
+            tagFilterOptions={
+              tagFilterOptions
+            }
+
+            savedViews={
+              savedViews
+            }
+
+            currentUserId={
+              currentUser.id
             }
 
             canManageAssignments={

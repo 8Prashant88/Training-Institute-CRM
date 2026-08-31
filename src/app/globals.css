@@ -84,9 +84,49 @@ html {
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(
+      1200px 480px at 12% -10%,
+      color-mix(in srgb, var(--color-primary-100) 55%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 420px at 100% 0%,
+      color-mix(in srgb, var(--color-accent-100) 35%, transparent),
+      transparent 55%
+    ),
+    var(--background);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Sidebar chrome: deep navy gradient plus a faint dot-grid texture,
+ * rather than a flat fill, so the app's one persistent full-height
+ * surface reads as a designed product rather than a bootstrap default.
+ *
+ * Both layers live in ONE rule on purpose. `background-image` isn't
+ * additive across separate class rules — a second class setting its
+ * own `background-image` (or a `background` shorthand, which resets
+ * background-image too) on the same element silently replaces this
+ * one instead of layering with it, whichever rule is declared later
+ * in the stylesheet. That was a real bug here: the gradient never
+ * rendered, leaving the sidebar showing the page's light background
+ * through it while every text color stayed styled for a dark one.
+ */
+.app-sidebar {
+  background-color: var(--color-primary-900);
+  background-image:
+    radial-gradient(rgb(255 255 255 / 0.08) 1px, transparent 1px),
+    linear-gradient(
+      185deg,
+      var(--color-primary-950) 0%,
+      var(--color-primary-900) 45%,
+      var(--color-primary-800) 100%
+    );
+  background-size: 16px 16px, auto;
+  background-repeat: repeat, no-repeat;
 }
 
 * {

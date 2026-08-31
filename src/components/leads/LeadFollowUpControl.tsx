@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock } from "lucide-react";
+import { AlertTriangle, CalendarClock } from "lucide-react";
 
 import { submitScheduleLeadFollowUp } from "@/actions/schedule-lead-follow-up";
 import Button, { buttonVariants } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import Field from "@/components/ui/Field";
 import { Input, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { formatDate } from "@/lib/format";
+import { isFollowUpOverdue } from "@/lib/lead-status-rules";
 import type { LeadStatus } from "@/types/lead";
 
 type LeadFollowUpControlProps = {
@@ -48,6 +49,8 @@ export default function LeadFollowUpControl({
   }>({});
 
   const isEligible = status !== "ENROLLED" && status !== "LOST";
+
+  const overdue = isFollowUpOverdue(status, nextFollowUpAt);
 
   function openDialog() {
     setNextFollowUpValue(
@@ -113,12 +116,22 @@ export default function LeadFollowUpControl({
       <button
         type="button"
         onClick={openDialog}
-        className={buttonVariants({ variant: "outline", size: "sm" })}
+        className={buttonVariants({
+          variant: "outline",
+          size: "sm",
+          className: overdue
+            ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+            : undefined,
+        })}
       >
-        <CalendarClock aria-hidden="true" className="size-4" />
+        {overdue ? (
+          <AlertTriangle aria-hidden="true" className="size-4" />
+        ) : (
+          <CalendarClock aria-hidden="true" className="size-4" />
+        )}
 
         {nextFollowUpAt
-          ? `Follow-up: ${formatDate(nextFollowUpAt)}`
+          ? `${overdue ? "Overdue" : "Follow-up"}: ${formatDate(nextFollowUpAt)}`
           : "Schedule follow-up"}
       </button>
 

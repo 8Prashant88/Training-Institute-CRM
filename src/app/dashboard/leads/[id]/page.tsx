@@ -33,6 +33,10 @@ import {
 } from "@/services/lead-service";
 
 import {
+  listTags,
+} from "@/services/tag-service";
+
+import {
   getCurrentAuthenticatedUser,
   listActiveCounselors,
 } from "@/services/user-service";
@@ -99,7 +103,7 @@ export default async function LeadDetailPage({
     redirect("/login");
   }
 
-  const lead = await getLeadById(id);
+  const lead = await getLeadById(id, currentUser.id);
 
   if (!lead) {
     notFound();
@@ -122,6 +126,7 @@ export default async function LeadDetailPage({
     counselors,
     enrollmentBatches,
     activities,
+    allTags,
   ] = await Promise.all([
     listActiveCourses(),
 
@@ -132,6 +137,8 @@ export default async function LeadDetailPage({
     listEnrollmentBatchOptions(),
 
     getLeadActivity(lead.id),
+
+    listTags(),
   ]);
 
   const initialData = {
@@ -185,7 +192,11 @@ export default async function LeadDetailPage({
         )}
       </div>
 
-      <LeadDetailHeader lead={lead} />
+      <LeadDetailHeader
+        lead={lead}
+        allTags={allTags}
+        canCreateTags={isAdmin(currentUser)}
+      />
 
       <Tabs
         tabs={[

@@ -11,6 +11,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { cn } from "@/lib/cn";
+
 import { useRouter } from "next/navigation";
 
 import { bulkChangeLeadStatus } from "@/actions/bulk-update-lead-status";
@@ -21,6 +23,9 @@ import LeadList from "@/components/LeadList";
 import LeadBulkActionsBar from "@/components/leads/LeadBulkActionsBar";
 import LeadFiltersBar from "@/components/leads/LeadFiltersBar";
 import LeadTable from "@/components/leads/LeadTable";
+import SavedViewsMenu, {
+  type SavedView,
+} from "@/components/leads/SavedViewsMenu";
 
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
@@ -29,11 +34,17 @@ import StatCard from "@/components/ui/StatCard";
 import { useToast } from "@/components/ui/Toast";
 
 import type {
+  LeadListFollowUpState,
+  LeadListPageSize,
+  LeadListPriority,
   LeadListQuery,
   LeadListSortBy,
   LeadListSortDirection,
   LeadListSource,
+  LeadListStatusGroup,
 } from "@/lib/lead-list-query";
+
+import { createLeadListSearchParams } from "@/lib/lead-list-query";
 
 import type { Lead, LeadStatus } from "@/types/lead";
 
@@ -51,6 +62,11 @@ type CounselorFilterOption = {
   fullName: string;
   email: string;
   isActive: boolean;
+};
+
+type TagFilterOption = {
+  id: string;
+  name: string;
 };
 
 type StatusCounts = Record<"ALL" | LeadStatus, number>;
@@ -83,6 +99,12 @@ type LeadsWorkspaceProps = {
 
   counselorFilterOptions: CounselorFilterOption[];
 
+  tagFilterOptions: TagFilterOption[];
+
+  savedViews: SavedView[];
+
+  currentUserId: string;
+
   canManageAssignments: boolean;
 };
 
@@ -93,50 +115,8 @@ function normalizeSearch(value: string) {
   return value.trim().slice(0, MAX_SEARCH_LENGTH);
 }
 
-function buildLeadsSearchParams(query: LeadListQuery) {
-  const params = new URLSearchParams();
-
-  if (query.search) {
-    params.set("q", query.search);
-  }
-
-  if (query.status) {
-    params.set("status", query.status);
-  }
-
-  if (query.source) {
-    params.set("source", query.source);
-  }
-
-  if (query.courseId) {
-    params.set("course", query.courseId);
-  }
-
-  if (query.counselor) {
-    params.set(
-      "counselor",
-
-      query.counselor === "UNASSIGNED" ? "unassigned" : query.counselor,
-    );
-  }
-
-  if (query.sortBy !== "createdAt") {
-    params.set("sort", query.sortBy);
-  }
-
-  if (query.sortDirection !== "desc") {
-    params.set("dir", query.sortDirection);
-  }
-
-  if (query.page > 1) {
-    params.set("page", String(query.page));
-  }
-
-  return params;
-}
-
 function createLeadsHref(query: LeadListQuery) {
-  const search = buildLeadsSearchParams(query).toString();
+  const search = createLeadListSearchParams(query).toString();
 
   return search ? `/dashboard/leads?${search}` : "/dashboard/leads";
 }
@@ -144,11 +124,11 @@ function createLeadsHref(query: LeadListQuery) {
 /*
  * CSV export intentionally ignores `page` — "export" means every row
  * matching the current filters, not just the page currently on
- * screen — so it's left out even though buildLeadsSearchParams()
+ * screen — so it's left out even though createLeadListSearchParams()
  * would otherwise include it.
  */
 function createLeadsExportHref(query: LeadListQuery) {
-  const params = buildLeadsSearchParams(query);
+  const params = createLeadListSearchParams(query);
 
   params.delete("page");
 
@@ -168,6 +148,9 @@ export default function LeadsWorkspace({
   courseFilterOptions,
   counselors,
   counselorFilterOptions,
+  tagFilterOptions,
+  savedViews,
+  currentUserId,
   canManageAssignments,
 }: LeadsWorkspaceProps) {
   const router = useRouter();
@@ -183,6 +166,8 @@ export default function LeadsWorkspace({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  const [showStats, setShowStats] = useState(true);
 
   /*
    * Browser Back / Forward navigation
@@ -210,9 +195,19 @@ export default function LeadsWorkspace({
     query.source,
     query.courseId,
     query.counselor,
+    query.priority,
+    query.tagId,
+    query.statusGroup,
+    query.followUpState,
+    query.favoritesOnly,
+    query.createdFrom,
+    query.createdTo,
+    query.followUpFrom,
+    query.followUpTo,
     query.sortBy,
     query.sortDirection,
     query.page,
+    query.pageSize,
   ].join("|");
   const [prevSelectionResetKey, setPrevSelectionResetKey] =
     useState(selectionResetKey);
@@ -473,6 +468,18 @@ export default function LeadsWorkspace({
     });
   }
 
+  function handlePriorityChange(priority?: LeadListPriority) {
+    changeQuery({
+      priority,
+    });
+  }
+
+  function handleTagChange(tagId?: string) {
+    changeQuery({
+      tagId,
+    });
+  }
+
   function handleSortChange(
     sortBy: LeadListSortBy,
 
@@ -484,6 +491,54 @@ export default function LeadsWorkspace({
     });
   }
 
+  function handlePageSizeChange(pageSize: LeadListPageSize) {
+    changeQuery({
+      pageSize,
+    });
+  }
+
+  /*
+   * Segment pills are independent toggles, not a radio group — but
+   * "To call" and "Overdue" describe disjoint status sets (a lead
+   * can't be both NEW/CONTACTED and FOLLOW_UP), so selecting one
+   * clears the other rather than composing into an always-empty
+   * result.
+   */
+  function handleStatusGroupChange(statusGroup?: LeadListStatusGroup) {
+    changeQuery({
+      statusGroup,
+
+      followUpState:
+        statusGroup === "TO_CALL" ? undefined : query.followUpState,
+    });
+  }
+
+  function handleFollowUpStateChange(
+    followUpState?: LeadListFollowUpState,
+  ) {
+    changeQuery({
+      followUpState,
+
+      statusGroup:
+        followUpState === "OVERDUE" ? undefined : query.statusGroup,
+    });
+  }
+
+  function handleFavoritesOnlyChange(favoritesOnly?: boolean) {
+    changeQuery({
+      favoritesOnly,
+    });
+  }
+
+  function handleDateRangeChange(
+    changes: Pick<
+      LeadListQuery,
+      "createdFrom" | "createdTo" | "followUpFrom" | "followUpTo"
+    >,
+  ) {
+    changeQuery(changes);
+  }
+
   function handleClearFilters() {
     setSearchValue("");
 
@@ -493,9 +548,19 @@ export default function LeadsWorkspace({
       source: undefined,
       courseId: undefined,
       counselor: undefined,
+      priority: undefined,
+      tagId: undefined,
+      statusGroup: undefined,
+      followUpState: undefined,
+      favoritesOnly: undefined,
+      createdFrom: undefined,
+      createdTo: undefined,
+      followUpFrom: undefined,
+      followUpTo: undefined,
       sortBy: "createdAt",
       sortDirection: "desc",
       page: 1,
+      pageSize: query.pageSize,
     });
   }
 
@@ -525,34 +590,55 @@ export default function LeadsWorkspace({
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Matching leads"
-          value={matchingLeadCount}
-          icon={Users}
-        />
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setShowStats((current) => !current)}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={cn(
+              "size-4 transition-transform",
+              showStats && "rotate-90",
+            )}
+          />
+          {showStats ? "Hide stats" : "Show stats"} ({matchingLeadCount})
+        </button>
 
-        <StatCard
-          label="New leads"
-          value={statusCounts.NEW}
-          icon={UserPlus}
-          description="Within current filters"
-        />
-
-        <StatCard
-          label="Follow-ups"
-          value={followUpCount}
-          icon={Clock}
-          description="Within current filters"
-        />
-
-        <StatCard
-          label="Enrolled"
-          value={enrolledCount}
-          icon={GraduationCap}
-          description={`${conversionRate}% conversion`}
-        />
+        <SavedViewsMenu views={savedViews} currentQuery={query} />
       </div>
+
+      {showStats && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Matching leads"
+            value={matchingLeadCount}
+            icon={Users}
+          />
+
+          <StatCard
+            label="New leads"
+            value={statusCounts.NEW}
+            icon={UserPlus}
+            description="Within current filters"
+          />
+
+          <StatCard
+            label="Follow-ups"
+            value={followUpCount}
+            icon={Clock}
+            description="Within current filters"
+          />
+
+          <StatCard
+            label="Enrolled"
+            value={enrolledCount}
+            icon={GraduationCap}
+            description={`${conversionRate}% conversion`}
+          />
+        </div>
+      )}
 
       <LeadFiltersBar
         search={searchValue}
@@ -560,11 +646,23 @@ export default function LeadsWorkspace({
         source={query.source}
         courseId={query.courseId}
         counselor={query.counselor}
+        priority={query.priority}
+        tagId={query.tagId}
+        statusGroup={query.statusGroup}
+        followUpState={query.followUpState}
+        favoritesOnly={query.favoritesOnly}
+        currentUserId={currentUserId}
+        createdFrom={query.createdFrom}
+        createdTo={query.createdTo}
+        followUpFrom={query.followUpFrom}
+        followUpTo={query.followUpTo}
         sortBy={query.sortBy}
         sortDirection={query.sortDirection}
+        pageSize={query.pageSize}
         statusCounts={statusCounts}
         courses={courseFilterOptions}
         counselors={counselorFilterOptions}
+        tags={tagFilterOptions}
         canManageAssignments={canManageAssignments}
         exportHref={createLeadsExportHref(query)}
         disabled={controlsDisabled}
@@ -573,7 +671,14 @@ export default function LeadsWorkspace({
         onSourceChange={handleSourceChange}
         onCourseChange={handleCourseChange}
         onCounselorChange={handleCounselorChange}
+        onPriorityChange={handlePriorityChange}
+        onTagChange={handleTagChange}
+        onStatusGroupChange={handleStatusGroupChange}
+        onFollowUpStateChange={handleFollowUpStateChange}
+        onFavoritesOnlyChange={handleFavoritesOnlyChange}
+        onDateRangeChange={handleDateRangeChange}
         onSortChange={handleSortChange}
+        onPageSizeChange={handlePageSizeChange}
         onClearFilters={handleClearFilters}
         onAddLead={() => setIsAddDialogOpen(true)}
       />

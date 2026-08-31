@@ -7,6 +7,8 @@ import {
   UserRole,
 } from "@/generated/prisma/client";
 
+import { startOfUtcDay } from "@/lib/lead-status-rules";
+
 import { prisma } from "@/lib/prisma";
 
 import type {
@@ -64,9 +66,7 @@ export async function listLeadFollowUps(
    * in lib/lead-status-rules.ts, so "scheduled for today" and "due
    * today" agree with each other.
    */
-  const startOfTodayUtc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  const startOfTodayUtc = startOfUtcDay(now);
 
   const startOfTomorrowUtc = new Date(
     startOfTodayUtc.getTime() + 24 * 60 * 60 * 1000,

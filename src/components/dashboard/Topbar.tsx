@@ -14,6 +14,7 @@ type TopbarProps = {
 type DashboardUser = {
   fullName: string;
   email: string;
+  avatarUrl: string | null;
   role: "ADMIN" | "COUNSELOR";
 };
 

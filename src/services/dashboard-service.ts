@@ -52,6 +52,12 @@ export type DashboardStats = {
   enrollmentsThisMonth: number;
   /** 0-100, rounded. Enrolled leads over all non-archived leads. */
   conversionRate: number;
+  /**
+   * Admin-only — a counselor never sees unassigned leads (they're not
+   * theirs to act on), so this is always 0 for a COUNSELOR viewer
+   * rather than a real count.
+   */
+  unassignedLeads: number;
 };
 
 export type LeadStatusBreakdown = Record<LeadStatus, number>;
@@ -136,6 +142,7 @@ export async function getDashboardData(
     newThisWeek,
     enrolledLeadCount,
     followUpsDue,
+    unassignedLeads,
     activeEnrollments,
     enrollmentsThisMonth,
     statusGroups,
@@ -162,6 +169,12 @@ export async function getDashboardData(
         nextFollowUpAt: { lte: now },
       },
     }),
+
+    isAdminUser
+      ? prisma.lead.count({
+          where: { archivedAt: null, assignedCounselorId: null },
+        })
+      : Promise.resolve(0),
 
     prisma.enrollment.count({
       where: { status: "ACTIVE", ...enrollmentLeadFilter },
@@ -289,6 +302,7 @@ export async function getDashboardData(
       followUpsDue,
       activeEnrollments,
       enrollmentsThisMonth,
+      unassignedLeads,
 
       conversionRate:
         totalLeads > 0

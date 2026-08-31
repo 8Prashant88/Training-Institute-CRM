@@ -106,6 +106,7 @@ export async function listLeadPipeline(
             status: true,
             createdAt: true,
             nextFollowUpAt: true,
+            priority: true,
 
             interestedCourse: {
               select: {
@@ -116,6 +117,12 @@ export async function listLeadPipeline(
             assignedCounselor: {
               select: {
                 fullName: true,
+              },
+            },
+
+            favoritedBy: {
+              select: {
+                id: true,
               },
             },
           },
@@ -139,6 +146,11 @@ export async function listLeadPipeline(
         assignedTo: lead.assignedCounselor?.fullName ?? "Unassigned",
         createdAt: lead.createdAt.toISOString(),
         nextFollowUpAt: lead.nextFollowUpAt?.toISOString() ?? null,
+        priority: lead.priority,
+
+        isFavorited: lead.favoritedBy.some(
+          (user) => user.id === currentUser.id,
+        ),
       }));
 
       return { status, totalCount, leads };

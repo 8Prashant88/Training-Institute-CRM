@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   LeadActivityType as DatabaseLeadActivityType,
+  LeadPriority as DatabaseLeadPriority,
   LeadSource as DatabaseLeadSource,
   LeadStatus as DatabaseLeadStatus,
   UserRole
@@ -16,8 +17,10 @@ import {
 import type { EnrollmentSummary } from "@/services/enrollment-service";
 import type {
   Lead,
+  LeadPriority,
   LeadSource,
   LeadStatus,
+  LeadTag,
 } from "@/types/lead";
 import type {
   AuthenticatedCrmUser,
@@ -98,6 +101,19 @@ export type ScheduledLeadFollowUp = {
   id: string;
   nextFollowUpAt: string | null;
 };
+
+export type LeadFieldUpdateErrorCode = "LEAD_NOT_FOUND" | "FORBIDDEN";
+
+export class LeadFieldUpdateError extends Error {
+  readonly code: LeadFieldUpdateErrorCode;
+
+  constructor(code: LeadFieldUpdateErrorCode, message: string) {
+    super(message);
+
+    this.name = "LeadFieldUpdateError";
+    this.code = code;
+  }
+}
 
 export type LeadActivityDetails = {
   id: string;
@@ -250,6 +266,8 @@ export type CreateLeadNoteInput = {
 
 export async function getLeadById(
   id: string,
+  /** Only needed to compute `isFavorited` for whoever is viewing. */
+  viewerId?: string,
 ): Promise<LeadDetails | null> {
   const lead = await prisma.lead.findUnique({
     where: {
@@ -266,6 +284,20 @@ export async function getLeadById(
       createdAt: true,
       archivedAt: true,
       nextFollowUpAt: true,
+      priority: true,
+
+      tags: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+
+      favoritedBy: {
+        select: {
+          id: true,
+        },
+      },
 
       interestedCourse: {
   select: {
@@ -351,6 +383,13 @@ export async function getLeadById(
 
     nextFollowUpAt:
       lead.nextFollowUpAt?.toISOString() ?? null,
+
+    priority: lead.priority,
+    tags: lead.tags,
+
+    isFavorited: viewerId
+      ? lead.favoritedBy.some((user) => user.id === viewerId)
+      : false,
 
     assignedCounselor: lead.assignedCounselor,
 
@@ -647,6 +686,117 @@ export async function scheduleLeadFollowUp(
       nextFollowUpAt: updatedLead.nextFollowUpAt?.toISOString() ?? null,
     };
   });
+}
+
+async function requireEditableLead(
+  leadId: string,
+  actor: { id: string; role: UserRole },
+) {
+  const lead = await prisma.lead.findFirst({
+    where: {
+      id: leadId,
+      archivedAt: null,
+    },
+
+    select: {
+      id: true,
+      assignedCounselorId: true,
+    },
+  });
+
+  if (!lead) {
+    throw new LeadFieldUpdateError(
+      "LEAD_NOT_FOUND",
+      "The lead was not found or has been archived.",
+    );
+  }
+
+  const canAccess =
+    actor.role === UserRole.ADMIN ||
+    lead.assignedCounselorId === actor.id;
+
+  if (!canAccess) {
+    throw new LeadFieldUpdateError(
+      "FORBIDDEN",
+      "You are not authorized to update this lead.",
+    );
+  }
+
+  return lead;
+}
+
+export async function setLeadPriority(
+  leadId: string,
+  priority: LeadPriority | null,
+  actor: { id: string; role: UserRole },
+): Promise<{ id: string; priority: LeadPriority | null }> {
+  await requireEditableLead(leadId, actor);
+
+  const updated = await prisma.lead.update({
+    where: { id: leadId },
+    data: {
+      priority: priority
+        ? (priority as DatabaseLeadPriority)
+        : null,
+    },
+    select: { id: true, priority: true },
+  });
+
+  return { id: updated.id, priority: updated.priority };
+}
+
+/**
+ * Replaces the lead's full tag set with `tagIds` — not an add/remove
+ * delta. The caller (a multi-select tag picker) always sends the
+ * complete desired set, so `set` is the correct Prisma operation here.
+ */
+export async function setLeadTags(
+  leadId: string,
+  tagIds: string[],
+  actor: { id: string; role: UserRole },
+): Promise<{ id: string; tags: LeadTag[] }> {
+  await requireEditableLead(leadId, actor);
+
+  const updated = await prisma.lead.update({
+    where: { id: leadId },
+    data: {
+      tags: {
+        set: tagIds.map((id) => ({ id })),
+      },
+    },
+    select: {
+      id: true,
+      tags: { select: { id: true, name: true } },
+    },
+  });
+
+  return { id: updated.id, tags: updated.tags };
+}
+
+/**
+ * Takes the desired state directly (`isFavorited`) rather than being
+ * a bare toggle — the client already knows the current state from the
+ * list/detail data it rendered, and sending the desired value avoids
+ * a double-click or stale-render race flipping it twice.
+ */
+export async function setLeadFavorite(
+  leadId: string,
+  isFavorited: boolean,
+  actor: { id: string; role: UserRole },
+): Promise<{ id: string; isFavorited: boolean }> {
+  await requireEditableLead(leadId, actor);
+
+  const updated = await prisma.lead.update({
+    where: { id: leadId },
+    data: {
+      favoritedBy: isFavorited
+        ? { connect: { id: actor.id } }
+        : { disconnect: { id: actor.id } },
+    },
+    select: { id: true },
+  });
+
+  return { id: updated.id, isFavorited };
 }
 
 export async function getLeadActivity(

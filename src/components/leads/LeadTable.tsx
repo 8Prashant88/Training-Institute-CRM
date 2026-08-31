@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   Mail,
   Phone,
 } from "lucide-react";
@@ -10,6 +11,7 @@ import {
 } from "next/navigation";
 
 import Avatar from "@/components/ui/Avatar";
+import Badge from "@/components/ui/Badge";
 
 import {
   Table,
@@ -21,14 +23,22 @@ import {
   TR,
 } from "@/components/ui/Table";
 
+import LeadFavoriteToggle from "@/components/leads/LeadFavoriteToggle";
 import LeadStatusBadge from "@/components/LeadStatusBadge";
+
+import { cn } from "@/lib/cn";
 
 import {
   formatRelativeDate,
 } from "@/lib/format";
 
-import type {
-  Lead,
+import { leadPriorityTones } from "@/lib/lead-status";
+
+import { isFollowUpOverdue } from "@/lib/lead-status-rules";
+
+import {
+  leadPriorityLabels,
+  type Lead,
 } from "@/types/lead";
 
 type LeadTableProps = {
@@ -92,14 +102,21 @@ export default function LeadTable({
               </TH>
             )}
 
+            <TH className="w-10" />
+
+            {/*
+             * Status/Score/Follow-up come right after identity — these
+             * are the fields that drive "who do I call next." Course,
+             * Source, Owner, and Created are reference context, pushed
+             * to the right.
+             */}
             <TH>Lead</TH>
             <TH>Status</TH>
-            <TH>Source</TH>
-            <TH>Course</TH>
-            <TH>
-              Assigned to
-            </TH>
+            <TH>Score</TH>
             <TH>Follow-up</TH>
+            <TH>Course</TH>
+            <TH>Source</TH>
+            <TH>Owner</TH>
             <TH>Created</TH>
 
             <TH className="text-right">
@@ -149,6 +166,20 @@ export default function LeadTable({
                   </TD>
                 )}
 
+                <TD
+                  onClick={(event) =>
+                    event.stopPropagation()
+                  }
+                >
+                  <LeadFavoriteToggle
+                    leadId={lead.id}
+                    leadName={lead.fullName}
+                    isFavorited={Boolean(
+                      lead.isFavorited,
+                    )}
+                  />
+                </TD>
+
                 <TD>
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar
@@ -181,22 +212,26 @@ export default function LeadTable({
                   />
                 </TD>
 
-                <TD className="whitespace-nowrap text-slate-600">
-                  {
-                    lead.source
-                  }
-                </TD>
-
-                <TD className="whitespace-nowrap text-slate-600">
-                  {
-                    lead.interestedCourse
-                  }
-                </TD>
-
-                <TD className="whitespace-nowrap text-slate-600">
-                  {
-                    lead.assignedTo
-                  }
+                <TD>
+                  {lead.priority ? (
+                    <Badge
+                      tone={
+                        leadPriorityTones[
+                          lead.priority
+                        ]
+                      }
+                    >
+                      {
+                        leadPriorityLabels[
+                          lead.priority
+                        ]
+                      }
+                    </Badge>
+                  ) : (
+                    <span className="text-slate-400">
+                      —
+                    </span>
+                  )}
                 </TD>
 
                 <TD
@@ -210,7 +245,25 @@ export default function LeadTable({
                   }
                 >
                   {lead.nextFollowUpAt ? (
-                    <span suppressHydrationWarning>
+                    <span
+                      suppressHydrationWarning
+                      className={cn(
+                        "inline-flex items-center gap-1",
+                        isFollowUpOverdue(
+                          lead.status,
+                          lead.nextFollowUpAt,
+                        ) && "font-medium text-red-600",
+                      )}
+                    >
+                      {isFollowUpOverdue(
+                        lead.status,
+                        lead.nextFollowUpAt,
+                      ) && (
+                        <AlertTriangle
+                          aria-hidden="true"
+                          className="size-3.5"
+                        />
+                      )}
                       {formatRelativeDate(
                         lead.nextFollowUpAt,
                       )}
@@ -218,6 +271,24 @@ export default function LeadTable({
                   ) : (
                     "—"
                   )}
+                </TD>
+
+                <TD className="whitespace-nowrap text-slate-600">
+                  {
+                    lead.interestedCourse
+                  }
+                </TD>
+
+                <TD className="whitespace-nowrap text-slate-600">
+                  {
+                    lead.source
+                  }
+                </TD>
+
+                <TD className="whitespace-nowrap text-slate-600">
+                  {
+                    lead.assignedTo
+                  }
                 </TD>
 
                 <TD
